@@ -102,21 +102,30 @@ try {
                 if (!foundListings.some(l => l.listingId === listing.listingId)) {
                     foundListings.push(listing);
                     newListingsAdded++;
-                    requestLog.info(`Added listing ${foundListings.length}/${numberOfListings}: ${listing.listingUrl}`);
                 }
             }
 
             requestLog.info(`Total listings collected so far: ${foundListings.length}/${numberOfListings}`);
 
-            // If we haven't reached the target, look for pagination
+            // Check if we need more listings and if there's a next page
             if (foundListings.length < numberOfListings) {
-                // Try multiple pagination selectors (Airbnb may use different ones)
+                requestLog.info(`Need ${numberOfListings - foundListings.length} more listings. Looking for next page...`);
+                
+                // Try multiple methods to find the next page URL
                 let nextUrl = null;
                 
-                // Method 1: Look for "Next" button with aria-label
-                const nextButton = await page.$('a[aria-label="Next"]');
+                // Method 1: Look for aria-label="Next"
+                const nextButton = await page.$('[aria-label="Next"]');
                 if (nextButton) {
-                    nextUrl = await nextButton.getAttribute('href');
+                    const isDisabled = await nextButton.evaluate(el => 
+                        el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true'
+                    );
+                    if (!isDisabled) {
+                        nextUrl = await nextButton.getAttribute('href');
+                        requestLog.info(`Found next page using aria-label="Next"`);
+                    } else {
+                        requestLog.info(`Next button found but is disabled`);
+                    }
                 }
                 
                 // Method 2: Look for pagination nav with "Next" text
@@ -124,6 +133,7 @@ try {
                     const nextLink = await page.$('nav a:has-text("Next")');
                     if (nextLink) {
                         nextUrl = await nextLink.getAttribute('href');
+                        requestLog.info(`Found next page using nav a:has-text("Next")`);
                     }
                 }
                 
@@ -132,15 +142,38 @@ try {
                     const paginationNext = await page.$('[data-testid="pagination-next-button"]');
                     if (paginationNext) {
                         nextUrl = await paginationNext.getAttribute('href');
+                        requestLog.info(`Found next page using pagination-next-button`);
                     }
                 }
                 
-                if (nextUrl) {
+                // Method 4: Try clicking next button directly
+                if (!nextUrl) {
+                    const hasNextButton = await page.evaluate(() => {
+                        const btn = document.querySelector('[aria-label="Next"]');
+                        return btn && !btn.hasAttribute('disabled');
+                    });
+                    
+                    if (hasNextButton) {
+                        requestLog.info(`Attempting to click Next button directly`);
+                        try {
+                            await page.click('[aria-label="Next"]');
+                            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+                            await page.waitForTimeout(2000);
+                            // Add current URL as next page
+                            nextUrl = page.url();
+                            requestLog.info(`Navigated to: ${nextUrl}`);
+                        } catch (e) {
+                            requestLog.error(`Failed to click Next button: ${e.message}`);
+                        }
+                    }
+                }
+                
+                if (nextUrl && nextUrl !== request.url) {
                     const fullNextUrl = nextUrl.startsWith('http') 
                         ? nextUrl 
                         : `https://www.airbnb.com${nextUrl}`;
                     
-                    requestLog.info(`Need ${numberOfListings - foundListings.length} more listings. Going to next page: ${fullNextUrl}`);
+                    requestLog.info(`Going to next page: ${fullNextUrl}`);
                     await crawler.addRequests([fullNextUrl]);
                 } else {
                     requestLog.info(`No more pages available. Collected ${foundListings.length} listings.`);
@@ -187,11 +220,12 @@ try {
                 }
             });
             
-            // Extract amenities
+            // Extract amenities - try multiple selectors
             const amenities = await page.evaluate(() => {
-                const amenityItems = document.querySelectorAll('[id^="pdp_v3_"]');
                 const result = [];
                 
+                // Method 1: Look for amenity items with pdp_v3_ prefix
+                const amenityItems = document.querySelectorAll('[id^="pdp_v3_"]');
                 amenityItems.forEach(item => {
                     const titleEl = item.querySelector('[id$="-row-title"]');
                     const descEl = item.querySelector('.s9gst5p');
@@ -203,6 +237,20 @@ try {
                         });
                     }
                 });
+                
+                // Method 2: If no amenities found, try alternative selector
+                if (result.length === 0) {
+                    const altAmenityItems = document.querySelectorAll('[data-testid*="amenity"]');
+                    altAmenityItems.forEach(item => {
+                        const text = item.textContent.trim();
+                        if (text) {
+                            result.push({
+                                name: text,
+                                description: null
+                            });
+                        }
+                    });
+                }
                 
                 return result;
             });
@@ -589,8 +637,10 @@ try {
                         if (showMoreBtn) {
                             const btnText = await showMoreBtn.textContent();
                             if (btnText && btnText.includes('Show more')) {
-                                // Click the button to open modal
-                                await showMoreBtn.click();
+                                // Scroll button into view and click
+                                await showMoreBtn.scrollIntoViewIfNeeded();
+                                await page.waitForTimeout(500);
+                                await showMoreBtn.click({ timeout: 5000 }).catch(() => {});
                                 await page.waitForTimeout(1000);
                                 
                                 // Extract from modal
@@ -635,8 +685,18 @@ try {
                         }
                     }
                 } catch (error) {
-                    requestLog.error(`Error extracting description: ${error.message}`);
-                    description = null;
+                    requestLog.warning(`Could not extract full description: ${error.message}`);
+                    // Try to get visible description as fallback
+                    if (!description) {
+                        description = await page.evaluate(() => {
+                            const descSection = document.querySelector('[data-section-id="DESCRIPTION_DEFAULT"]');
+                            if (descSection) {
+                                const spans = descSection.querySelectorAll('span');
+                                return Array.from(spans).map(s => s.textContent).join(' ').trim();
+                            }
+                            return null;
+                        }).catch(() => null);
+                    }
                 }
                 
                 // Extract all images
