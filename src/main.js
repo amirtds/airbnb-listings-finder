@@ -677,8 +677,12 @@ try {
                             description = await page.evaluate(() => {
                                 const descSection = document.querySelector('[data-section-id="DESCRIPTION_DEFAULT"]');
                                 if (descSection) {
-                                    const spans = descSection.querySelectorAll('span');
-                                    return Array.from(spans).map(s => s.textContent).join(' ').trim();
+                                    // Get the main content div, excluding the button
+                                    const contentDiv = descSection.querySelector('.d1isfkwk');
+                                    if (contentDiv) {
+                                        const spans = contentDiv.querySelectorAll('span.l1h825yc');
+                                        return Array.from(spans).map(s => s.textContent).join('\n\n').trim();
+                                    }
                                 }
                                 return null;
                             });
@@ -691,8 +695,12 @@ try {
                         description = await page.evaluate(() => {
                             const descSection = document.querySelector('[data-section-id="DESCRIPTION_DEFAULT"]');
                             if (descSection) {
-                                const spans = descSection.querySelectorAll('span');
-                                return Array.from(spans).map(s => s.textContent).join(' ').trim();
+                                // Get the main content div, excluding the button
+                                const contentDiv = descSection.querySelector('.d1isfkwk');
+                                if (contentDiv) {
+                                    const spans = contentDiv.querySelectorAll('span.l1h825yc');
+                                    return Array.from(spans).map(s => s.textContent).join('\n\n').trim();
+                                }
                             }
                             return null;
                         }).catch(() => null);
@@ -712,15 +720,113 @@ try {
                     return Array.from(imageUrls);
                 }).catch(() => []);
                 
-                // Extract host profile ID
+                // Extract host profile ID - try multiple methods to find the correct one
                 const hostProfileId = await page.evaluate(() => {
-                    const hostLink = document.querySelector('a[href*="/users/show/"]');
-                    if (hostLink) {
-                        const match = hostLink.href.match(/\/users\/show\/(\d+)/);
-                        return match ? match[1] : null;
+                    // Method 1: Look for host profile link in the host overview section
+                    const hostSection = document.querySelector('[data-section-id="HOST_OVERVIEW_DEFAULT"]');
+                    if (hostSection) {
+                        const hostLink = hostSection.querySelector('a[href*="/users/show/"]');
+                        if (hostLink) {
+                            const match = hostLink.href.match(/\/users\/show\/(\d+)/);
+                            if (match) return match[1];
+                        }
                     }
+                    
+                    // Method 2: Look for the "Learn more about the host" button
+                    const learnMoreBtn = document.querySelector('button[aria-label*="Learn more about the host"]');
+                    if (learnMoreBtn) {
+                        const ariaLabel = learnMoreBtn.getAttribute('aria-label');
+                        // The aria-label might contain the host name, but not the ID
+                        // So we need to look for a nearby link
+                        const parent = learnMoreBtn.closest('[data-section-id="HOST_OVERVIEW_DEFAULT"]');
+                        if (parent) {
+                            const hostLink = parent.querySelector('a[href*="/users/show/"]');
+                            if (hostLink) {
+                                const match = hostLink.href.match(/\/users\/show\/(\d+)/);
+                                if (match) return match[1];
+                            }
+                        }
+                    }
+                    
+                    // Method 3: Look in the host profile image/avatar area within HOST_OVERVIEW section
+                    const hostAvatar = document.querySelector('[data-section-id="HOST_OVERVIEW_DEFAULT"] a[href*="/users/show/"]');
+                    if (hostAvatar) {
+                        const match = hostAvatar.href.match(/\/users\/show\/(\d+)/);
+                        if (match) return match[1];
+                    }
+                    
+                    // Method 4: Exclude reviews section and find first host link
+                    const allLinks = Array.from(document.querySelectorAll('a[href*="/users/show/"]'));
+                    for (const link of allLinks) {
+                        // Skip if link is inside reviews section
+                        const reviewsSection = link.closest('[data-section-id="REVIEWS_DEFAULT"]');
+                        if (reviewsSection) continue;
+                        
+                        const match = link.href.match(/\/users\/show\/(\d+)/);
+                        if (match) return match[1];
+                    }
+                    
                     return null;
                 }).catch(() => null);
+                
+                // Extract co-hosts information
+                const coHosts = await page.evaluate(() => {
+                    const coHostsList = [];
+                    
+                    // Find the Co-hosts section by looking for h3 containing "Co-hosts" or "Co-host"
+                    const headings = Array.from(document.querySelectorAll('h3'));
+                    const coHostHeading = headings.find(h => {
+                        const text = h.textContent.trim();
+                        return text.includes('Co-host') || text.includes('co-host');
+                    });
+                    
+                    if (coHostHeading) {
+                        // Find the list element that follows the heading
+                        let listElement = coHostHeading.nextElementSibling;
+                        while (listElement && listElement.tagName !== 'UL') {
+                            listElement = listElement.nextElementSibling;
+                        }
+                        
+                        if (listElement) {
+                            // Extract all co-host links from the list
+                            const coHostLinks = listElement.querySelectorAll('a[href*="/users/show/"]');
+                            coHostLinks.forEach(link => {
+                                const match = link.href.match(/\/users\/show\/(\d+)/);
+                                if (match) {
+                                    const profileId = match[1];
+                                    // Extract name from aria-label or text content
+                                    let name = null;
+                                    const ariaLabel = link.getAttribute('aria-label');
+                                    if (ariaLabel) {
+                                        // aria-label format: "Learn more about the host, Erick."
+                                        const nameMatch = ariaLabel.match(/host,\s*([^.]+)/);
+                                        if (nameMatch) {
+                                            name = nameMatch[1].trim();
+                                        }
+                                    }
+                                    
+                                    // If no name from aria-label, try to find it in the list item
+                                    if (!name) {
+                                        const listItem = link.closest('li');
+                                        if (listItem) {
+                                            const nameSpan = listItem.querySelector('span');
+                                            if (nameSpan) {
+                                                name = nameSpan.textContent.trim();
+                                            }
+                                        }
+                                    }
+                                    
+                                    coHostsList.push({
+                                        name: name,
+                                        profileId: profileId
+                                    });
+                                }
+                            });
+                        }
+                    }
+                    
+                    return coHostsList;
+                }).catch(() => []);
                 
                 // Extract max guests, bedrooms, bathrooms
                 const propertyDetails = await page.evaluate(() => {
@@ -786,6 +892,7 @@ try {
                     images: images,
                     hostProfileId: hostProfileId,
                     hostProfile: hostProfile,
+                    coHosts: coHosts,
                     maxGuests: propertyDetails.maxGuests,
                     bedrooms: propertyDetails.bedrooms,
                     bathrooms: propertyDetails.bathrooms,
