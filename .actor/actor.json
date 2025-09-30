@@ -3,7 +3,7 @@
   "name": "airbnb-listings-finder",
   "title": "Airbnb Listings Finder",
   "description": "Finds Airbnb listing URLs based on location and returns specified number of listings",
-  "version": "1.0.0",
+  "version": "1.0",
   "meta": {
     "templateId": "js-crawlee"
   },
