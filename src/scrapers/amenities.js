@@ -39,13 +39,12 @@ export async function scrapeAmenities(page, listingId, requestLog, minDelay, max
             const amenityItems = document.querySelectorAll('[id^="pdp_v3_"]');
             amenityItems.forEach(item => {
                 const titleEl = item.querySelector('[id$="-row-title"]');
-                const descEl = item.querySelector('.s9gst5p');
                 
                 if (titleEl) {
-                    result.push({
-                        name: titleEl.textContent.trim(),
-                        description: descEl ? descEl.textContent.trim() : null
-                    });
+                    const name = titleEl.textContent.trim();
+                    if (name && !result.includes(name)) {
+                        result.push(name);
+                    }
                 }
             });
             
@@ -54,11 +53,8 @@ export async function scrapeAmenities(page, listingId, requestLog, minDelay, max
                 const altAmenityItems = document.querySelectorAll('[data-testid*="amenity"]');
                 altAmenityItems.forEach(item => {
                     const text = item.textContent.trim();
-                    if (text) {
-                        result.push({
-                            name: text,
-                            description: null
-                        });
+                    if (text && !result.includes(text)) {
+                        result.push(text);
                     }
                 });
             }

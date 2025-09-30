@@ -124,16 +124,20 @@ Scrape multiple Airbnb listings for a given location.
           "reviewsCount": 150
         },
         "coHosts": [],
-        "maxGuests": 4,
         "bedrooms": 2,
         "bathrooms": 2,
         "isGuestFavorite": true,
         "isSuperhost": true,
         "amenities": [
-          {
-            "name": "WiFi",
-            "description": "High-speed internet"
-          }
+          "WiFi",
+          "Kitchen",
+          "Air conditioning",
+          "Heating",
+          "TV",
+          "Hair dryer",
+          "Iron",
+          "Washer",
+          "Free parking"
         ],
         "reviews": [
           {
@@ -359,7 +363,7 @@ To avoid being blocked by Airbnb:
   bathrooms: number | null;
   isGuestFavorite: boolean;
   isSuperhost: boolean;
-  amenities: Amenity[];
+  amenities: string[];  // Array of amenity names
   reviews: Review[];
   houseRules: HouseRules | null;
 }
