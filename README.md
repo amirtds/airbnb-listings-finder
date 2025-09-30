@@ -28,17 +28,44 @@ The actor accepts the following input parameters via API POST request:
 
 ## Output
 
-The actor returns an array of listing objects with the following structure:
+The actor returns an array of detailed listing objects with the following structure:
 
 ```json
 [
   {
-    "listingUrl": "https://www.airbnb.com/rooms/12345678",
     "listingId": "12345678",
-    "location": "Miami, FL"
+    "listingUrl": "https://www.airbnb.com/rooms/12345678",
+    "location": "Miami, FL",
+    "title": "Beautiful Beachfront Apartment",
+    "description": "Full description of the property...",
+    "images": [
+      "https://a0.muscache.com/im/pictures/...",
+      "https://a0.muscache.com/im/pictures/..."
+    ],
+    "hostProfileId": "123456",
+    "maxGuests": 4,
+    "bedrooms": 2,
+    "bathrooms": 1.5,
+    "isGuestFavorite": true,
+    "isSuperhost": true
   }
 ]
 ```
+
+### Data Fields
+
+- **listingId**: Unique Airbnb listing identifier
+- **listingUrl**: Direct URL to the listing page
+- **location**: Search location provided as input
+- **title**: Property title/name
+- **description**: Full property description
+- **images**: Array of all property image URLs
+- **hostProfileId**: Host's Airbnb user ID
+- **maxGuests**: Maximum number of guests allowed
+- **bedrooms**: Number of bedrooms
+- **bathrooms**: Number of bathrooms
+- **isGuestFavorite**: Whether the listing is marked as "Guest Favorite"
+- **isSuperhost**: Whether the host is a Superhost
 
 ## Local Development
 
@@ -136,14 +163,26 @@ airbnb-listings-finder/
 
 ## How It Works
 
+The actor operates in two phases:
+
+### Phase 1: Collect Listing URLs
 1. Actor receives `location` and `numberOfListings` parameters via API POST request
 2. Constructs Airbnb search URL based on the location
 3. Crawls search results pages using Crawlee's PlaywrightCrawler (handles JavaScript-rendered content)
 4. Waits for page to load and scrolls to trigger lazy-loaded content
 5. Extracts listing URLs matching the pattern `/rooms/{id}`
-6. Handles pagination to find more listings if needed
-7. Returns the requested number of unique listing URLs
-8. Stores results in Apify dataset
+6. Handles pagination automatically to collect the requested number of listings
+
+### Phase 2: Scrape Detailed Data
+7. Visits each listing page individually
+8. Waits for full page load (including dynamic content)
+9. Extracts comprehensive data:
+   - Title and description
+   - All property images
+   - Host profile ID
+   - Property details (guests, bedrooms, bathrooms)
+   - Special badges (Guest Favorite, Superhost)
+10. Compiles all data and stores in Apify dataset
 
 ## Notes
 

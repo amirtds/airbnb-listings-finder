@@ -86,7 +86,19 @@ curl https://api.apify.com/v2/acts/YOUR_ACTOR_ID/runs/LAST/dataset/items \
   {
     "listingId": "1506732284117933752",
     "listingUrl": "https://www.airbnb.com/rooms/1506732284117933752",
-    "location": "Miami, FL"
+    "location": "Miami, FL",
+    "title": "Bright Private Bed&Bath Neighboring Downtown Miami",
+    "description": "Enjoy a private bedroom with an ensuite bathroom...",
+    "images": [
+      "https://a0.muscache.com/im/pictures/...",
+      "https://a0.muscache.com/im/pictures/..."
+    ],
+    "hostProfileId": "593603218",
+    "maxGuests": 2,
+    "bedrooms": 1,
+    "bathrooms": 3,
+    "isGuestFavorite": false,
+    "isSuperhost": false
   },
   ...
 ]
@@ -95,6 +107,14 @@ curl https://api.apify.com/v2/acts/YOUR_ACTOR_ID/runs/LAST/dataset/items \
 ## Notes
 
 - The actor uses Playwright to handle JavaScript-rendered content
+- Operates in two phases: (1) Collect listing URLs, (2) Scrape detailed data
 - First run may take longer as Playwright downloads browser binaries
+- Processing time depends on the number of listings (approximately 5-10 seconds per listing)
 - Results are stored in both the dataset and OUTPUT key-value store
 - For production, consider adding proxy rotation to avoid rate limiting
+
+## Performance
+
+- **Phase 1** (URL Collection): ~5-10 seconds per search page
+- **Phase 2** (Detail Scraping): ~5-10 seconds per listing
+- **Example**: 10 listings ≈ 1-2 minutes total runtime
