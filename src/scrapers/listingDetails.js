@@ -10,7 +10,42 @@ import { fixedDelay } from '../utils/delays.js';
  * @returns {Promise<string|null>} Listing title
  */
 export async function extractTitle(page) {
-    return await page.$eval('h1', el => el.textContent.trim()).catch(() => null);
+    try {
+        // Method 1: Try standard h1
+        const h1Title = await page.$eval('h1', el => el.textContent.trim()).catch(() => null);
+        if (h1Title) return h1Title;
+        
+        // Method 2: Try data-section-id TITLE
+        const titleSection = await page.evaluate(() => {
+            const section = document.querySelector('[data-section-id*="TITLE"]');
+            if (section) {
+                const h1 = section.querySelector('h1');
+                if (h1) return h1.textContent.trim();
+            }
+            return null;
+        });
+        if (titleSection) return titleSection;
+        
+        // Method 3: Try any h1 with specific class patterns
+        const classTitle = await page.evaluate(() => {
+            const h1s = document.querySelectorAll('h1');
+            for (const h1 of h1s) {
+                const text = h1.textContent.trim();
+                // Skip empty or very short titles
+                if (text && text.length > 3) {
+                    return text;
+                }
+            }
+            return null;
+        });
+        if (classTitle) return classTitle;
+        
+        console.log('[Title] Could not extract title - trying all h1 elements');
+        return null;
+    } catch (error) {
+        console.error(`[Title] Error extracting title: ${error.message}`);
+        return null;
+    }
 }
 
 /**
@@ -106,17 +141,46 @@ export async function extractDescription(page, requestLog) {
  * @returns {Promise<Array>} Array of image URLs
  */
 export async function extractImages(page) {
-    return await page.evaluate(() => {
-        const imgElements = document.querySelectorAll('img[data-original-uri], picture img');
-        const imageUrls = new Set();
-        imgElements.forEach(img => {
-            const src = img.getAttribute('data-original-uri') || img.src;
-            if (src && src.startsWith('http') && !src.includes('profile_pic')) {
-                imageUrls.add(src);
-            }
+    try {
+        const images = await page.evaluate(() => {
+            const imageUrls = new Set();
+            
+            // Method 1: data-original-uri attribute
+            const imgWithUri = document.querySelectorAll('img[data-original-uri]');
+            imgWithUri.forEach(img => {
+                const src = img.getAttribute('data-original-uri');
+                if (src && src.startsWith('http') && !src.includes('profile_pic')) {
+                    imageUrls.add(src);
+                }
+            });
+            
+            // Method 2: picture img elements
+            const pictureImgs = document.querySelectorAll('picture img');
+            pictureImgs.forEach(img => {
+                const src = img.src || img.getAttribute('src');
+                if (src && src.startsWith('http') && !src.includes('profile_pic') && src.includes('airbnb')) {
+                    imageUrls.add(src);
+                }
+            });
+            
+            // Method 3: All images with airbnb CDN URLs
+            const allImgs = document.querySelectorAll('img');
+            allImgs.forEach(img => {
+                const src = img.src || img.getAttribute('src');
+                if (src && src.includes('a0.muscache.com') && !src.includes('profile_pic')) {
+                    imageUrls.add(src);
+                }
+            });
+            
+            return Array.from(imageUrls);
         });
-        return Array.from(imageUrls);
-    }).catch(() => []);
+        
+        console.log(`[Images] Extracted ${images.length} images`);
+        return images;
+    } catch (error) {
+        console.error(`[Images] Error extracting images: ${error.message}`);
+        return [];
+    }
 }
 
 /**

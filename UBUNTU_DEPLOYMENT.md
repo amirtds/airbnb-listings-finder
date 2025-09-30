@@ -71,7 +71,7 @@ sudo apt install -y \
     libgbm1 \
     libpango-1.0-0 \
     libcairo2 \
-    libasound2 \
+    libasound2t64 \
     libatspi2.0-0
 ```
 
@@ -96,7 +96,7 @@ sudo apt install -y nginx
 **Option A: Using Git**
 ```bash
 cd ~
-git clone https://github.com/your-username/airbnb-listings-finder.git
+git clone https://github.com/amirtds/airbnb-listings-finder.git
 cd airbnb-listings-finder
 ```
 
@@ -215,7 +215,7 @@ Add the following configuration:
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;  # Replace with your domain or server IP
+    server_name airbnb-analyzer.cubite.io;
 
     # Increase timeouts for long-running scraping requests
     proxy_connect_timeout 300;
@@ -268,7 +268,7 @@ sudo apt install -y certbot python3-certbot-nginx
 ### 6.2 Obtain SSL Certificate
 
 ```bash
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d airbnb-analyzer.cubite.io
 ```
 
 Follow the prompts. Certbot will automatically configure Nginx for HTTPS.

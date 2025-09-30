@@ -1,11 +1,13 @@
 /**
- * REST API Server for Airbnb Listings Scraper
+ * Express API Server for Airbnb Listings Scraper
  * 
  * Endpoints:
+ * - GET /health - Health check
  * - POST /api/scrape/search - Scrape listings by location
  * - POST /api/scrape/listing - Scrape individual listing by ID
  */
 
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { scrapeByLocation } from './controllers/searchController.js';

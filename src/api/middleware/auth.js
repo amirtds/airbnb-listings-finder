@@ -8,13 +8,16 @@
  */
 export function authenticate(req, res, next) {
     const authHeader = req.headers.authorization;
-
+        
     if (!authHeader) {
         return res.status(401).json({
             success: false,
             error: 'Authentication required',
             message: 'Please provide an Authorization header with a valid token',
-            example: 'Authorization: Bearer YOUR_API_TOKEN'
+            example: 'Authorization: Bearer YOUR_API_TOKEN',
+            debug: {
+                receivedHeaders: Object.keys(req.headers)
+            }
         });
     }
 
@@ -33,12 +36,14 @@ export function authenticate(req, res, next) {
         return res.status(403).json({
             success: false,
             error: 'Invalid token',
-            message: 'The provided token is not valid'
+            message: 'The provided token is not valid',
+            debug: {
+                receivedToken: token,
+                validTokenCount: validTokens.length
+            }
         });
     }
 
-    // Token is valid, proceed
-    console.log(`[Auth] Valid token used: ${token.substring(0, 8)}...`);
     next();
 }
 

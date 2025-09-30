@@ -105,11 +105,21 @@ export async function scrapeByListingId(req, res, next) {
         // Extract main listing details
         logger.info('Extracting main details...');
         const title = await extractTitle(page);
+        logger.info(`Title: ${title || 'NOT FOUND'}`);
+        
         const description = await extractDescription(page, logger);
+        logger.info(`Description: ${description ? description.substring(0, 50) + '...' : 'NOT FOUND'}`);
+        
         const images = await extractImages(page);
+        logger.info(`Images: ${images.length} found`);
+        
         const hostProfileId = await extractHostProfileId(page);
+        logger.info(`Host Profile ID: ${hostProfileId || 'NOT FOUND'}`);
+        
         const coHosts = await extractCoHosts(page);
         const propertyDetails = await extractPropertyDetails(page);
+        logger.info(`Property: ${propertyDetails.maxGuests || '?'} guests, ${propertyDetails.bedrooms || '?'} bedrooms, ${propertyDetails.bathrooms || '?'} bathrooms`);
+        
         const guestFavorite = await isGuestFavorite(page);
         const superhost = await isSuperhost(page);
 
