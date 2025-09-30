@@ -12,6 +12,7 @@ import { scrapeByLocation } from './controllers/searchController.js';
 import { scrapeByListingId } from './controllers/listingController.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { authenticate } from './middleware/auth.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,19 +22,20 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
-// Health check endpoint
+// Health check endpoint (no auth required)
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         service: 'Airbnb Listings Scraper API',
         version: '1.0.0',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        authentication: process.env.API_TOKENS ? 'enabled' : 'disabled (using default token)'
     });
 });
 
-// API Routes
-app.post('/api/scrape/search', scrapeByLocation);
-app.post('/api/scrape/listing', scrapeByListingId);
+// API Routes (protected with authentication)
+app.post('/api/scrape/search', authenticate, scrapeByLocation);
+app.post('/api/scrape/listing', authenticate, scrapeByListingId);
 
 // Error handling middleware
 app.use(errorHandler);

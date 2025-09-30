@@ -98,9 +98,9 @@ export async function scrapeByListingId(req, res, next) {
         const listingUrl = `https://www.airbnb.com/rooms/${listingId}`;
         logger.info(`Navigating to ${listingUrl}`);
         
-        await randomDelay(minDelayBetweenRequests, maxDelayBetweenRequests, logger);
+        // Fast navigation - no delays for individual listing endpoint
         await page.goto(listingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await fixedDelay(3000);
+        await fixedDelay(2000); // Minimal wait for page to stabilize
 
         // Extract main listing details
         logger.info('Extracting main details...');
@@ -113,44 +113,44 @@ export async function scrapeByListingId(req, res, next) {
         const guestFavorite = await isGuestFavorite(page);
         const superhost = await isSuperhost(page);
 
-        // Scrape amenities
+        // Scrape amenities (no delays for faster scraping)
         logger.info('Scraping amenities...');
         const amenities = await scrapeAmenities(
             page,
             listingId,
             logger,
-            minDelayBetweenRequests,
-            maxDelayBetweenRequests
+            500,  // Minimal delay
+            1000  // Minimal delay
         );
 
-        // Scrape reviews
+        // Scrape reviews (no delays for faster scraping)
         logger.info('Scraping reviews...');
         const reviews = await scrapeReviews(
             page,
             listingId,
             logger,
-            minDelayBetweenRequests,
-            maxDelayBetweenRequests
+            500,  // Minimal delay
+            1000  // Minimal delay
         );
 
-        // Scrape house rules
+        // Scrape house rules (no delays for faster scraping)
         logger.info('Scraping house rules...');
         const houseRules = await scrapeHouseRules(
             page,
             listingId,
             logger,
-            minDelayBetweenRequests,
-            maxDelayBetweenRequests
+            500,  // Minimal delay
+            1000  // Minimal delay
         );
 
-        // Scrape host profile
+        // Scrape host profile (no delays for faster scraping)
         logger.info('Scraping host profile...');
         const hostProfile = await scrapeHostProfile(
             page,
             hostProfileId,
             logger,
-            minDelayBetweenRequests,
-            maxDelayBetweenRequests
+            500,  // Minimal delay
+            1000  // Minimal delay
         );
 
         // Close browser

@@ -8,6 +8,30 @@
 # Install dependencies
 npm install
 
+# Create .env file
+cp .env.example .env
+
+# Edit .env and add your API tokens
+nano .env
+```
+
+### Configuration
+
+Edit `.env` file:
+```env
+PORT=3000
+NODE_ENV=development
+API_TOKENS=your-secret-token-here,another-token-here
+```
+
+**Generate secure tokens:**
+```bash
+openssl rand -hex 32
+```
+
+### Start the Server
+
+```bash
 # Start the API server
 npm run api
 
@@ -16,6 +40,18 @@ npm run dev
 ```
 
 The API will be available at `http://localhost:3000`
+
+### Authentication
+
+All API endpoints (except `/health`) require authentication using Bearer tokens.
+
+**Include the token in your requests:**
+```bash
+curl -X POST http://localhost:3000/api/scrape/search \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-secret-token-here" \
+  -d '{"location": "Miami, FL", "numberOfListings": 5}'
+```
 
 ---
 
@@ -147,10 +183,30 @@ Scrape multiple Airbnb listings for a given location.
 ```bash
 curl -X POST http://localhost:3000/api/scrape/search \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-secret-token-here" \
   -d '{
     "location": "Miami, FL",
     "numberOfListings": 5
   }'
+```
+
+**Authentication Error (401):**
+```json
+{
+  "success": false,
+  "error": "Authentication required",
+  "message": "Please provide an Authorization header with a valid token",
+  "example": "Authorization: Bearer YOUR_API_TOKEN"
+}
+```
+
+**Invalid Token Error (403):**
+```json
+{
+  "success": false,
+  "error": "Invalid token",
+  "message": "The provided token is not valid"
+}
 ```
 
 ---
@@ -237,12 +293,18 @@ Scrape detailed information for a single Airbnb listing by ID.
 ```bash
 curl -X POST http://localhost:3000/api/scrape/listing \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-secret-token-here" \
   -d '{
     "listingId": "12345678"
   }'
 ```
 
-**⚠️ Important Note for Large Listing IDs:**
+**⚠️ Important Notes:**
+
+**1. Authentication Required:**
+All scraping endpoints require a valid Bearer token in the Authorization header.
+
+**2. Large Listing IDs:**
 
 For very large listing IDs (e.g., `1429341905176538313`), always send them as **strings** to avoid JavaScript number precision issues:
 
