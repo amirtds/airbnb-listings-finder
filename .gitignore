@@ -8,3 +8,8 @@ dist/
 
 # Allow viewing storage during development (optional)
 !storage/key_value_stores/default/INPUT.json
+
+# Added by Apify CLI
+storage
+node_modules
+.venv
