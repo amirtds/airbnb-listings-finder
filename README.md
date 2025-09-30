@@ -1,10 +1,6 @@
-# Airbnb Listings Scraper
+# Airbnb Listings Finder
 
-A comprehensive Crawlee-based Apify actor that extracts detailed Airbnb listing data including property details, host information, amenities, reviews, and house rules.
-
-## Categories
-
-`airbnb` `listing` `scraper` `real-estate` `vacation-rental` `property-data` `web-scraping` `data-extraction` `apify` `crawlee`
+A powerful, modular Airbnb scraper with both CLI and REST API interfaces. Built with Crawlee and Playwright for reliable, production-ready scraping.
 
 ## Features
 
@@ -151,12 +147,7 @@ The actor returns an array of detailed listing objects with comprehensive data:
   - `date`: Review date
   - `comment`: Full review text
 
-## Local Development
-
-### Prerequisites
-
-- Node.js 18 or higher
-- npm
+## 🚀 Quick Start
 
 ### Installation
 
@@ -165,9 +156,35 @@ cd airbnb-listings-finder
 npm install
 ```
 
-### Running Locally
+### Option 1: REST API (Recommended)
 
-Create a test input file `input.json`:
+Start the API server:
+
+```bash
+npm run api
+```
+
+The API will be available at `http://localhost:3000`
+
+**Scrape by location:**
+```bash
+curl -X POST http://localhost:3000/api/scrape/search \
+  -H "Content-Type: application/json" \
+  -d '{"location": "Miami, FL", "numberOfListings": 5}'
+```
+
+**Scrape individual listing:**
+```bash
+curl -X POST http://localhost:3000/api/scrape/listing \
+  -H "Content-Type: application/json" \
+  -d '{"listingId": "12345678"}'
+```
+
+📖 **Full API Documentation**: See [API.md](./API.md)
+
+### Option 2: CLI / Apify Actor
+
+Create a test input file `storage/key_value_stores/default/INPUT.json`:
 
 ```json
 {
@@ -182,7 +199,7 @@ Run the actor:
 npm start
 ```
 
-The results will be stored in `./apify_storage/datasets/default/`.
+The results will be stored in `./storage/datasets/default/`.
 
 ## Deploying to Apify
 
