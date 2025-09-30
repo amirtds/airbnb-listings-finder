@@ -1,0 +1,35 @@
+{
+  "actorSpecification": 1,
+  "name": "airbnb-listings-finder",
+  "title": "Airbnb Listings Finder",
+  "description": "Finds Airbnb listing URLs based on location and returns specified number of listings",
+  "version": "1.0.0",
+  "meta": {
+    "templateId": "js-crawlee"
+  },
+  "input": "./input_schema.json",
+  "dockerfile": "./Dockerfile",
+  "readme": "./README.md",
+  "storages": {
+    "dataset": {
+      "actorSpecification": 1,
+      "title": "Airbnb Listings",
+      "views": {
+        "overview": {
+          "title": "Overview",
+          "transformation": {
+            "fields": [
+              "listingUrl",
+              "listingId",
+              "location"
+            ]
+          },
+          "display": {
+            "component": "table",
+            "properties": {}
+          }
+        }
+      }
+    }
+  }
+}

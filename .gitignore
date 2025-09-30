@@ -1,0 +1,10 @@
+node_modules/
+apify_storage/
+storage/
+dist/
+.env
+.DS_Store
+*.log
+
+# Allow viewing storage during development (optional)
+!storage/key_value_stores/default/INPUT.json

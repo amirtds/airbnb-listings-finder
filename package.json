@@ -1,0 +1,28 @@
+{
+  "name": "airbnb-listings-finder",
+  "version": "1.0.0",
+  "description": "Crawlee-based Airbnb listings finder that extracts listing URLs based on location",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "airbnb",
+    "crawlee",
+    "apify",
+    "scraper",
+    "listings"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "apify": "^3.1.10",
+    "crawlee": "^3.7.0",
+    "playwright": "^1.40.0"
+  },
+  "devDependencies": {
+    "@apify/tsconfig": "^0.1.0"
+  }
+}
