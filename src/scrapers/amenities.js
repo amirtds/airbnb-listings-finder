@@ -1,0 +1,75 @@
+/**
+ * Scraper for Airbnb listing amenities
+ */
+
+import { randomDelay, fixedDelay } from '../utils/delays.js';
+
+/**
+ * Scrape amenities from a listing
+ * @param {Object} page - Playwright page instance
+ * @param {string} listingId - Listing ID
+ * @param {Object} requestLog - Logger instance
+ * @param {number} minDelay - Minimum delay between requests
+ * @param {number} maxDelay - Maximum delay between requests
+ * @returns {Promise<Array>} Array of amenities
+ */
+export async function scrapeAmenities(page, listingId, requestLog, minDelay, maxDelay) {
+    try {
+        // Add random delay before navigating to amenities
+        await randomDelay(minDelay, maxDelay, requestLog);
+        
+        const amenitiesUrl = `https://www.airbnb.com/rooms/${listingId}/amenities`;
+        await page.goto(amenitiesUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await fixedDelay(3000);
+        
+        // Scroll to bottom of modal to load all amenities
+        await page.evaluate(async () => {
+            const scrollableDiv = document.querySelector('[data-testid="pdp-reviews-modal-scrollable-panel"], .dir.dir-ltr');
+            if (scrollableDiv) {
+                scrollableDiv.scrollTo(0, scrollableDiv.scrollHeight);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        });
+        
+        // Extract amenities - try multiple selectors
+        const amenities = await page.evaluate(() => {
+            const result = [];
+            
+            // Method 1: Look for amenity items with pdp_v3_ prefix
+            const amenityItems = document.querySelectorAll('[id^="pdp_v3_"]');
+            amenityItems.forEach(item => {
+                const titleEl = item.querySelector('[id$="-row-title"]');
+                const descEl = item.querySelector('.s9gst5p');
+                
+                if (titleEl) {
+                    result.push({
+                        name: titleEl.textContent.trim(),
+                        description: descEl ? descEl.textContent.trim() : null
+                    });
+                }
+            });
+            
+            // Method 2: If no amenities found, try alternative selector
+            if (result.length === 0) {
+                const altAmenityItems = document.querySelectorAll('[data-testid*="amenity"]');
+                altAmenityItems.forEach(item => {
+                    const text = item.textContent.trim();
+                    if (text) {
+                        result.push({
+                            name: text,
+                            description: null
+                        });
+                    }
+                });
+            }
+            
+            return result;
+        });
+        
+        requestLog.info(`Found ${amenities.length} amenities`);
+        return amenities;
+    } catch (error) {
+        requestLog.error(`Failed to scrape amenities: ${error.message}`);
+        return [];
+    }
+}

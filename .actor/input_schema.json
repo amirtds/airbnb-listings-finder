@@ -1,5 +1,5 @@
 {
-  "title": "Airbnb Listings Finder Input",
+  "title": "Airbnb Listings Scraper Input",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
@@ -18,6 +18,24 @@
       "default": 10,
       "minimum": 1,
       "maximum": 100
+    },
+    "minDelayBetweenRequests": {
+      "title": "Minimum Delay Between Requests (ms)",
+      "type": "integer",
+      "description": "Minimum delay in milliseconds between requests to avoid rate limiting",
+      "editor": "number",
+      "default": 3000,
+      "minimum": 1000,
+      "maximum": 30000
+    },
+    "maxDelayBetweenRequests": {
+      "title": "Maximum Delay Between Requests (ms)",
+      "type": "integer",
+      "description": "Maximum delay in milliseconds between requests to appear more human-like",
+      "editor": "number",
+      "default": 8000,
+      "minimum": 2000,
+      "maximum": 60000
     }
   },
   "required": ["location", "numberOfListings"]
