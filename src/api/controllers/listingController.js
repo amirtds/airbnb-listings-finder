@@ -136,7 +136,7 @@ export async function scrapeByListingId(req, res, next) {
         
         // Extract review scores
         logger.info('Extracting review scores...');
-        const reviewScore = await extractReviewScore(page);
+        const reviewScore = await extractReviewScore(page, listingId);
 
         // Scrape amenities (no delays for faster scraping)
         logger.info('Scraping amenities...');

@@ -359,9 +359,10 @@ export async function isSuperhost(page) {
 /**
  * Extract overall review score and rating breakdown
  * @param {Object} page - Playwright page instance
+ * @param {string} listingId - Listing ID (optional, for navigating to reviews modal)
  * @returns {Promise<Object>} Review score data
  */
-export async function extractReviewScore(page) {
+export async function extractReviewScore(page, listingId = null) {
     try {
         const scoreData = await page.evaluate(() => {
             const result = {
@@ -397,34 +398,104 @@ export async function extractReviewScore(page) {
                 }
             }
 
-            // Extract category ratings from reviews section
-            const reviewsSection = document.querySelector('[data-section-id="REVIEWS_DEFAULT"]');
-            if (reviewsSection) {
-                const categoryElements = reviewsSection.querySelectorAll('[role="img"]');
-                categoryElements.forEach(el => {
-                    const ariaLabel = el.getAttribute('aria-label');
-                    if (ariaLabel) {
-                        // Match patterns like "Rated 4.9 out of 5 stars for Cleanliness"
-                        const match = ariaLabel.match(/Rated\s+([\d.]+)\s+out of 5.*for\s+(.+)/i);
-                        if (match) {
-                            const rating = parseFloat(match[1]);
-                            const category = match[2].toLowerCase().trim();
-                            
-                            if (category.includes('clean')) result.categoryRatings.cleanliness = rating;
-                            else if (category.includes('accuracy')) result.categoryRatings.accuracy = rating;
-                            else if (category.includes('check')) result.categoryRatings.checkIn = rating;
-                            else if (category.includes('communication')) result.categoryRatings.communication = rating;
-                            else if (category.includes('location')) result.categoryRatings.location = rating;
-                            else if (category.includes('value')) result.categoryRatings.value = rating;
-                        }
-                    }
-                });
-            }
-
             return result;
         });
 
+        // If we have reviews and listingId, navigate to reviews modal to get category ratings
+        if (scoreData.reviewsCount && scoreData.reviewsCount > 0 && listingId) {
+            try {
+                const currentUrl = page.url();
+                const reviewsUrl = `https://www.airbnb.com/rooms/${listingId}/reviews`;
+                
+                console.log('[Review Score] Navigating to reviews modal to extract category ratings...');
+                await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                
+                // Wait for the modal to appear
+                await page.waitForSelector('[role="dialog"][aria-modal="true"]', { timeout: 10000 }).catch(() => {
+                    console.log('[Review Score] Modal not found with role=dialog, continuing...');
+                });
+                
+                await fixedDelay(3000); // Wait for modal content to fully load
+                
+                // Extract category ratings from the modal
+                const categoryRatings = await page.evaluate(() => {
+                    const ratings = {
+                        cleanliness: null,
+                        accuracy: null,
+                        checkIn: null,
+                        communication: null,
+                        location: null,
+                        value: null
+                    };
+                    
+                    // Look for the modal with role="dialog"
+                    const modal = document.querySelector('[role="dialog"][aria-modal="true"]');
+                    if (modal) {
+                        // Find all spans with aria-label containing rating information
+                        const allSpans = modal.querySelectorAll('span[aria-label]');
+                        
+                        allSpans.forEach(el => {
+                            const ariaLabel = el.getAttribute('aria-label');
+                            if (ariaLabel && ariaLabel.includes('Rated') && ariaLabel.includes('out of 5')) {
+                                // Match patterns like "Rated 4.9 out of 5 stars for cleanliness"
+                                const match = ariaLabel.match(/Rated\s+([\d.]+)\s+out of 5.*for\s+(.+)/i);
+                                if (match) {
+                                    const rating = parseFloat(match[1]);
+                                    const category = match[2].toLowerCase().trim();
+                                    
+                                    if (category.includes('clean')) ratings.cleanliness = rating;
+                                    else if (category.includes('accuracy')) ratings.accuracy = rating;
+                                    else if (category.includes('check')) ratings.checkIn = rating;
+                                    else if (category.includes('communication')) ratings.communication = rating;
+                                    else if (category.includes('location')) ratings.location = rating;
+                                    else if (category.includes('value')) ratings.value = rating;
+                                }
+                            }
+                        });
+                        
+                        // Alternative: Look for divs with specific structure
+                        const categoryDivs = modal.querySelectorAll('div[class*="cwzyvtz"]');
+                        
+                        categoryDivs.forEach(div => {
+                            // Get the visible rating number
+                            const ratingDiv = div.querySelector('div[class*="v1kb7fro"]');
+                            // Get the category name
+                            const categoryDiv = div.querySelector('div[class*="lqnx5rh"]');
+                            
+                            if (ratingDiv && categoryDiv) {
+                                const rating = parseFloat(ratingDiv.textContent.trim());
+                                const category = categoryDiv.textContent.trim().toLowerCase();
+                                
+                                if (!isNaN(rating)) {
+                                    if (category.includes('clean')) ratings.cleanliness = rating;
+                                    else if (category.includes('accuracy')) ratings.accuracy = rating;
+                                    else if (category.includes('check')) ratings.checkIn = rating;
+                                    else if (category.includes('communication')) ratings.communication = rating;
+                                    else if (category.includes('location')) ratings.location = rating;
+                                    else if (category.includes('value')) ratings.value = rating;
+                                }
+                            }
+                        });
+                    }
+                    
+                    return ratings;
+                });
+                
+                // Update scoreData with category ratings
+                scoreData.categoryRatings = categoryRatings;
+                
+                // Navigate back to the original listing page
+                console.log('[Review Score] Navigating back to listing page...');
+                await page.goto(currentUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                await fixedDelay(1000);
+                
+            } catch (modalError) {
+                console.log(`[Review Score] Could not extract category ratings: ${modalError.message}`);
+            }
+        }
+
         console.log(`[Review Score] Overall: ${scoreData.overallRating || 'N/A'} (${scoreData.reviewsCount || 0} reviews)`);
+        console.log(`[Review Score] Category ratings:`, scoreData.categoryRatings);
         return scoreData;
     } catch (error) {
         console.error(`[Review Score] Error: ${error.message}`);
