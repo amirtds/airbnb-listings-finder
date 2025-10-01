@@ -132,7 +132,7 @@ export async function scrapeByListingId(req, res, next) {
         
         // Extract pricing information
         logger.info('Extracting pricing...');
-        const pricing = await extractPricing(page);
+        const pricing = await extractPricing(page, listingId);
         
         // Extract review scores
         logger.info('Extracting review scores...');

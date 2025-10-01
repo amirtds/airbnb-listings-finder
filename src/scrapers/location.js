@@ -85,9 +85,19 @@ export async function extractLocation(page) {
             const mapImage = document.querySelector('[data-section-id="LOCATION_DEFAULT"] img[src*="maps.googleapis.com"]');
             if (mapImage) {
                 const src = mapImage.src;
-                // Extract center parameter: center=LAT,LNG
-                const centerMatch = src.match(/center=([-\d.]+)%2C([-\d.]+)/);
-                if (centerMatch) {
+                // Extract center parameter: center=LAT,LNG (try both %2C and & separators)
+                let centerMatch = src.match(/center=([-\d.]+)%2C([-\d.]+)/);
+                if (!centerMatch) {
+                    centerMatch = src.match(/center=([-\d.]+)&/);
+                    if (centerMatch) {
+                        // Try to find longitude after the latitude
+                        const lonMatch = src.match(/center=[-\d.]+%2C([-\d.]+)/);
+                        if (lonMatch) {
+                            result.coordinates.latitude = parseFloat(centerMatch[1]);
+                            result.coordinates.longitude = parseFloat(lonMatch[1]);
+                        }
+                    }
+                } else {
                     result.coordinates.latitude = parseFloat(centerMatch[1]);
                     result.coordinates.longitude = parseFloat(centerMatch[2]);
                 }

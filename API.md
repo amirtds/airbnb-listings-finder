@@ -391,12 +391,15 @@ To avoid being blocked by Airbnb:
 
 ```typescript
 {
-  pricePerNight: number | null;
+  pricePerNight: number | null;  // Calculated from 3-night booking
   currency: string | null;  // e.g., "$", "€", "£"
+  totalFor3Nights: number | null;  // Total price for 3 consecutive nights
   priceBeforeDiscount: number | null;
   discountPercentage: number | null;
 }
 ```
+
+**Note:** Pricing is extracted from the availability calendar by finding 3 consecutive available nights and calculating the average per-night price. This provides more accurate pricing than the displayed rate, which may not account for minimum stay requirements.
 
 ### Review Score Object
 
