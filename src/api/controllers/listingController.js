@@ -208,8 +208,8 @@ export async function scrapeByListingId(req, res, next) {
             reviews: reviews.reviews, // Extract reviews from the new structure
             houseRules: houseRules,
             htmlSnapshots: {
-                listingPageHtml: listingPageHtml,
-                reviewsModalHtml: reviews.htmlSnapshots?.reviewsModalHtml || null
+                listingPageHtml: listingPageHtml
+                // reviewsModalHtml: reviews.htmlSnapshots?.reviewsModalHtml || null
             }
         };
 
