@@ -355,3 +355,90 @@ export async function isSuperhost(page) {
         return bodyText.includes('Superhost');
     }).catch(() => false);
 }
+
+/**
+ * Extract overall review score and rating breakdown
+ * @param {Object} page - Playwright page instance
+ * @returns {Promise<Object>} Review score data
+ */
+export async function extractReviewScore(page) {
+    try {
+        const scoreData = await page.evaluate(() => {
+            const result = {
+                overallRating: null,
+                reviewsCount: null,
+                categoryRatings: {
+                    cleanliness: null,
+                    accuracy: null,
+                    checkIn: null,
+                    communication: null,
+                    location: null,
+                    value: null
+                }
+            };
+
+            // Extract overall rating - look for pattern like "4.95 · 123 reviews"
+            const ratingElements = document.querySelectorAll('span');
+            for (const el of ratingElements) {
+                const text = el.textContent.trim();
+                // Match patterns like "4.95" or "5.0"
+                const ratingMatch = text.match(/^(\d+\.\d+)$/);
+                if (ratingMatch && !result.overallRating) {
+                    const rating = parseFloat(ratingMatch[1]);
+                    if (rating >= 0 && rating <= 5) {
+                        result.overallRating = rating;
+                    }
+                }
+                
+                // Match review count like "123 reviews"
+                const reviewsMatch = text.match(/(\d+)\s+reviews?/i);
+                if (reviewsMatch && !result.reviewsCount) {
+                    result.reviewsCount = parseInt(reviewsMatch[1]);
+                }
+            }
+
+            // Extract category ratings from reviews section
+            const reviewsSection = document.querySelector('[data-section-id="REVIEWS_DEFAULT"]');
+            if (reviewsSection) {
+                const categoryElements = reviewsSection.querySelectorAll('[role="img"]');
+                categoryElements.forEach(el => {
+                    const ariaLabel = el.getAttribute('aria-label');
+                    if (ariaLabel) {
+                        // Match patterns like "Rated 4.9 out of 5 stars for Cleanliness"
+                        const match = ariaLabel.match(/Rated\s+([\d.]+)\s+out of 5.*for\s+(.+)/i);
+                        if (match) {
+                            const rating = parseFloat(match[1]);
+                            const category = match[2].toLowerCase().trim();
+                            
+                            if (category.includes('clean')) result.categoryRatings.cleanliness = rating;
+                            else if (category.includes('accuracy')) result.categoryRatings.accuracy = rating;
+                            else if (category.includes('check')) result.categoryRatings.checkIn = rating;
+                            else if (category.includes('communication')) result.categoryRatings.communication = rating;
+                            else if (category.includes('location')) result.categoryRatings.location = rating;
+                            else if (category.includes('value')) result.categoryRatings.value = rating;
+                        }
+                    }
+                });
+            }
+
+            return result;
+        });
+
+        console.log(`[Review Score] Overall: ${scoreData.overallRating || 'N/A'} (${scoreData.reviewsCount || 0} reviews)`);
+        return scoreData;
+    } catch (error) {
+        console.error(`[Review Score] Error: ${error.message}`);
+        return {
+            overallRating: null,
+            reviewsCount: null,
+            categoryRatings: {
+                cleanliness: null,
+                accuracy: null,
+                checkIn: null,
+                communication: null,
+                location: null,
+                value: null
+            }
+        };
+    }
+}

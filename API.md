@@ -363,9 +363,55 @@ To avoid being blocked by Airbnb:
   bathrooms: number | null;
   isGuestFavorite: boolean;
   isSuperhost: boolean;
+  location: Location;
+  pricing: Pricing;
+  reviewScore: ReviewScore;
   amenities: string[];  // Array of amenity names
   reviews: Review[];
   houseRules: HouseRules | null;
+}
+```
+
+### Location Object
+
+```typescript
+{
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  coordinates: {
+    latitude: number | null;
+    longitude: number | null;
+  }
+}
+```
+
+### Pricing Object
+
+```typescript
+{
+  pricePerNight: number | null;
+  currency: string | null;  // e.g., "$", "€", "£"
+  priceBeforeDiscount: number | null;
+  discountPercentage: number | null;
+}
+```
+
+### Review Score Object
+
+```typescript
+{
+  overallRating: number | null;  // 0-5 scale
+  reviewsCount: number | null;
+  categoryRatings: {
+    cleanliness: number | null;
+    accuracy: number | null;
+    checkIn: number | null;
+    communication: number | null;
+    location: number | null;
+    value: number | null;
+  }
 }
 ```
 

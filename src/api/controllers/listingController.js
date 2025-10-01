@@ -8,22 +8,25 @@ import { scrapeAmenities } from '../../scrapers/amenities.js';
 import { scrapeReviews } from '../../scrapers/reviews.js';
 import { scrapeHouseRules } from '../../scrapers/houseRules.js';
 import { scrapeHostProfile } from '../../scrapers/hostProfile.js';
-import {
-    extractTitle,
-    extractDescription,
-    extractImages,
+import { 
+    extractTitle, 
+    extractDescription, 
+    extractImages, 
     extractHostProfileId,
     extractCoHosts,
     extractPropertyDetails,
     isGuestFavorite,
-    isSuperhost
+    isSuperhost,
+    extractReviewScore
 } from '../../scrapers/listingDetails.js';
+import { extractLocation } from '../../scrapers/location.js';
+import { extractPricing } from '../../scrapers/pricing.js';
 import { randomDelay, fixedDelay } from '../../utils/delays.js';
 
 /**
  * POST /api/scrape/listing
  * Scrape individual Airbnb listing by ID
- * 
+{{ ... }}
  * Request body:
  * {
  *   "listingId": "12345678",
@@ -123,6 +126,18 @@ export async function scrapeByListingId(req, res, next) {
         const guestFavorite = await isGuestFavorite(page);
         const superhost = await isSuperhost(page);
 
+        // Extract location information
+        logger.info('Extracting location...');
+        const location = await extractLocation(page);
+        
+        // Extract pricing information
+        logger.info('Extracting pricing...');
+        const pricing = await extractPricing(page);
+        
+        // Extract review scores
+        logger.info('Extracting review scores...');
+        const reviewScore = await extractReviewScore(page);
+
         // Scrape amenities (no delays for faster scraping)
         logger.info('Scraping amenities...');
         const amenities = await scrapeAmenities(
@@ -182,6 +197,9 @@ export async function scrapeByListingId(req, res, next) {
             bathrooms: propertyDetails.bathrooms,
             isGuestFavorite: guestFavorite,
             isSuperhost: superhost,
+            location: location,
+            pricing: pricing,
+            reviewScore: reviewScore,
             amenities: amenities,
             reviews: reviews,
             houseRules: houseRules
