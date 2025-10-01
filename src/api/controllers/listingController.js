@@ -105,6 +105,10 @@ export async function scrapeByListingId(req, res, next) {
         await page.goto(listingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await fixedDelay(2000); // Minimal wait for page to stabilize
 
+        // Capture listing page HTML
+        logger.info('Capturing listing page HTML...');
+        const listingPageHtml = await page.content();
+
         // Extract main listing details
         logger.info('Extracting main details...');
         const title = await extractTitle(page);
@@ -201,8 +205,12 @@ export async function scrapeByListingId(req, res, next) {
             pricing: pricing,
             reviewScore: reviewScore,
             amenities: amenities,
-            reviews: reviews,
-            houseRules: houseRules
+            reviews: reviews.reviews, // Extract reviews from the new structure
+            houseRules: houseRules,
+            htmlSnapshots: {
+                listingPageHtml: listingPageHtml,
+                reviewsModalHtml: reviews.htmlSnapshots?.reviewsModalHtml || null
+            }
         };
 
         logger.info('Scraping completed successfully');

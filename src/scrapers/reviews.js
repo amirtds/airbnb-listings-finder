@@ -78,7 +78,7 @@ async function extractReviewsFromPage(page) {
  * @param {Object} requestLog - Logger instance
  * @param {number} minDelay - Minimum delay between requests
  * @param {number} maxDelay - Maximum delay between requests
- * @returns {Promise<Object>} Object with reviews categorized by sort type
+ * @returns {Promise<Object>} Object with reviews categorized by sort type and HTML snapshots
  */
 export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDelay) {
     try {
@@ -88,6 +88,9 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
         const reviewsUrl = `https://www.airbnb.com/rooms/${listingId}/reviews`;
         await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await fixedDelay(3000);
+        
+        // Capture reviews modal HTML
+        const reviewsModalHtml = await page.content();
         
         const reviewsByCategory = {
             mostRelevant: [],
@@ -187,14 +190,24 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
         const totalReviews = Object.values(reviewsByCategory).reduce((sum, arr) => sum + arr.length, 0);
         requestLog.info(`Total reviews scraped across all categories: ${totalReviews}`);
         
-        return reviewsByCategory;
+        return {
+            reviews: reviewsByCategory,
+            htmlSnapshots: {
+                reviewsModalHtml: reviewsModalHtml
+            }
+        };
     } catch (error) {
         requestLog.error(`Failed to scrape reviews: ${error.message}`);
         return {
-            mostRelevant: [],
-            mostRecent: [],
-            highestRated: [],
-            lowestRated: []
+            reviews: {
+                mostRelevant: [],
+                mostRecent: [],
+                highestRated: [],
+                lowestRated: []
+            },
+            htmlSnapshots: {
+                reviewsModalHtml: null
+            }
         };
     }
 }
