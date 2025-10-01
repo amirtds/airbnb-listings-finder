@@ -35,7 +35,8 @@ export function createDetailCrawler(
     maxDelayBetweenRequests
 ) {
     return new PlaywrightCrawler({
-        maxRequestsPerCrawl: numberOfListings + 10,
+        // Set high limit to avoid premature shutdown
+        maxRequestsPerCrawl: Math.max(numberOfListings * 10, 100),
         headless: true,
         
         // Rate limiting for detail pages
