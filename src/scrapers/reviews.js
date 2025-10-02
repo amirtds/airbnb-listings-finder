@@ -198,9 +198,9 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
         
         return {
             reviews: reviewsByCategory,
-            htmlSnapshots: {
-                reviewsModalHtml: reviewsModalHtml
-            }
+            // htmlSnapshots: {
+            //     reviewsModalHtml: reviewsModalHtml
+            // }
         };
     } catch (error) {
         requestLog.error(`Failed to scrape reviews: ${error.message}`);
@@ -211,9 +211,9 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
                 highestRated: [],
                 lowestRated: []
             },
-            htmlSnapshots: {
-                reviewsModalHtml: null
-            }
+            // htmlSnapshots: {
+            //     reviewsModalHtml: null
+            // }
         };
     }
 }
