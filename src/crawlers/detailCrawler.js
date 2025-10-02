@@ -9,6 +9,8 @@ import { scrapeAmenities } from '../scrapers/amenities.js';
 import { scrapeReviews } from '../scrapers/reviews.js';
 import { scrapeHouseRules } from '../scrapers/houseRules.js';
 import { scrapeHostProfile } from '../scrapers/hostProfile.js';
+import { extractLocation } from '../scrapers/location.js';
+import { extractPricing } from '../scrapers/pricing.js';
 import {
     extractTitle,
     extractDescription,
@@ -17,7 +19,8 @@ import {
     extractCoHosts,
     extractPropertyDetails,
     isGuestFavorite,
-    isSuperhost
+    isSuperhost,
+    extractReviewScore
 } from '../scrapers/listingDetails.js';
 
 /**
@@ -64,14 +67,16 @@ export function createDetailCrawler(
             requestLog.info(`Scraping details for listing ${listingId}: ${request.url}`);
             
             try {
-                // Reduced delay for faster processing
-                const minDelay = quickModeEnabled ? 500 : Math.min(minDelayBetweenRequests, 2000);
-                const maxDelay = quickModeEnabled ? 1000 : Math.min(maxDelayBetweenRequests, 3000);
+                // Optimized delays for faster processing
+                const minDelay = quickModeEnabled ? 300 : Math.min(minDelayBetweenRequests, 1000);
+                const maxDelay = quickModeEnabled ? 600 : Math.min(maxDelayBetweenRequests, 1500);
                 await randomDelay(minDelay, maxDelay, requestLog);
                 
                 // Wait for page to load with reduced timeout
                 await page.waitForLoadState('domcontentloaded');
-                await fixedDelay(quickModeEnabled ? 1000 : 2000);
+                // Wait for title to appear as indication page is ready
+                await page.waitForSelector('h1', { timeout: 5000 }).catch(() => {});
+                await fixedDelay(quickModeEnabled ? 500 : 800);
                 
                 // Extract main listing details
                 requestLog.info(`Extracting main details for listing ${listingId}`);
@@ -83,6 +88,23 @@ export function createDetailCrawler(
                 const propertyDetails = await extractPropertyDetails(page);
                 const guestFavorite = await isGuestFavorite(page);
                 const superhost = await isSuperhost(page);
+                
+                // Extract location information
+                requestLog.info(`Extracting location for listing ${listingId}`);
+                const locationData = await extractLocation(page);
+                
+                // Extract review scores (overall rating and count)
+                requestLog.info(`Extracting review scores for listing ${listingId}`);
+                const reviewScore = await extractReviewScore(page, listingId);
+                
+                // Extract pricing information (only if not in quick mode)
+                let pricing = null;
+                if (!quickModeEnabled) {
+                    requestLog.info(`Extracting pricing for listing ${listingId}`);
+                    pricing = await extractPricing(page, listingId);
+                } else {
+                    requestLog.info(`Skipping pricing extraction in quick mode for listing ${listingId}`);
+                }
                 
                 // Scrape amenities with optimized delays
                 requestLog.info(`Scraping amenities for listing ${listingId}`);
@@ -134,7 +156,8 @@ export function createDetailCrawler(
                 const detailedListing = {
                     listingId: listingId,
                     listingUrl: request.url,
-                    location: request.userData.location,
+                    searchLocation: request.userData.location,  // Original search location
+                    location: locationData,  // Detailed location data
                     title: title,
                     description: description,
                     images: images,
@@ -146,6 +169,9 @@ export function createDetailCrawler(
                     bathrooms: propertyDetails.bathrooms,
                     isGuestFavorite: guestFavorite,
                     isSuperhost: superhost,
+                    overallRating: reviewScore?.overallRating || null,
+                    reviewsCount: reviewScore?.reviewsCount || null,
+                    pricing: pricing,
                     amenities: amenities,
                     reviews: reviews,
                     houseRules: houseRules
@@ -156,11 +182,15 @@ export function createDetailCrawler(
                 
             } catch (error) {
                 requestLog.error(`Failed to scrape listing ${listingId}:`, error.message);
-                // Add partial data
+                // Add partial data with error
                 detailedListings.push({
                     listingId: listingId,
                     listingUrl: request.url,
-                    location: request.userData.location,
+                    searchLocation: request.userData.location,
+                    location: null,
+                    overallRating: null,
+                    reviewsCount: null,
+                    pricing: null,
                     error: error.message
                 });
             }

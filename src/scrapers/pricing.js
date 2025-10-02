@@ -20,15 +20,19 @@ export async function extractPricing(page, listingId) {
             discountPercentage: null
         };
 
-        console.log('[Pricing] Navigating to availability calendar...');
+        // Navigating to availability calendar (console.log removed for performance)
         
         // Navigate to the calendar view
         const calendarUrl = `https://www.airbnb.com/rooms/${listingId}#availability-calendar`;
         await page.goto(calendarUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await fixedDelay(3000); // Wait for calendar to load
+        
+        // Smart wait: Wait for calendar to appear instead of fixed delay
+        await page.waitForSelector('td[role="button"]', { timeout: 5000 }).catch(() => {
+            console.log('[Pricing] Calendar not found, using fallback');
+        });
+        await fixedDelay(800); // Reduced from 3000ms - just enough for calendar to stabilize
 
         // Find and click available dates
-        console.log('[Pricing] Finding available dates...');
         
         // Find available dates (not disabled, not checkout-only)
         const availableDates = await page.evaluate(() => {
@@ -56,7 +60,7 @@ export async function extractPricing(page, listingId) {
             return dates;
         });
 
-        console.log(`[Pricing] Found ${availableDates.length} available dates`);
+        // Found available dates (log removed for performance)
 
         let calendarPricing = {
             currency: null,
@@ -85,8 +89,8 @@ export async function extractPricing(page, listingId) {
                         setTimeout(() => elements[0].click(), 300);
                     }
                 }, checkInTestId);
-                console.log(`[Pricing] Selected check-in: ${availableDates[0].ariaLabel.substring(0, 50)}...`);
-                await fixedDelay(1500);
+                // Check-in selected (log removed for performance)
+                await fixedDelay(600); // Reduced from 1500ms
 
                 // Click check-out date using JavaScript
                 const checkOutTestId = availableDates[3].testId;
@@ -104,8 +108,8 @@ export async function extractPricing(page, listingId) {
                         setTimeout(() => elements[0].click(), 300);
                     }
                 }, checkOutTestId);
-                console.log(`[Pricing] Selected check-out: ${availableDates[3].ariaLabel.substring(0, 50)}...`);
-                await fixedDelay(2000);
+                // Check-out selected (log removed for performance)
+                await fixedDelay(800); // Reduced from 2000ms
 
                 // Extract the price that appears
                 calendarPricing = await page.evaluate(() => {
@@ -131,9 +135,9 @@ export async function extractPricing(page, listingId) {
                     return result;
                 });
 
-                console.log(`[Pricing] Extracted from calendar: ${calendarPricing.currency}${calendarPricing.totalPrice || 'N/A'}`);
+                // Price extracted from calendar (log removed for performance)
             } catch (error) {
-                console.log(`[Pricing] Error selecting dates: ${error.message}`);
+                // Error selecting dates (log removed for performance)
             }
         }
 
@@ -142,13 +146,12 @@ export async function extractPricing(page, listingId) {
             pricingData.totalFor3Nights = calendarPricing.totalPrice;
             pricingData.pricePerNight = Math.round(calendarPricing.totalPrice / 3);
             
-            console.log(`[Pricing] Found pricing from calendar: ${pricingData.currency}${pricingData.pricePerNight} per night (${pricingData.currency}${pricingData.totalFor3Nights} for 3 nights)`);
+            // Pricing found from calendar (log removed for performance)
         } else {
             // Fallback: Try to extract from booking panel on main page
-            console.log('[Pricing] Calendar pricing not found, trying booking panel...');
             
             await page.goto(`https://www.airbnb.com/rooms/${listingId}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-            await fixedDelay(2000);
+            await fixedDelay(800); // Reduced from 2000ms
             
             const fallbackPricing = await page.evaluate(() => {
                 const result = {
@@ -174,7 +177,7 @@ export async function extractPricing(page, listingId) {
             if (fallbackPricing.pricePerNight) {
                 pricingData.currency = fallbackPricing.currency;
                 pricingData.pricePerNight = fallbackPricing.pricePerNight;
-                console.log(`[Pricing] Found pricing from booking panel: ${pricingData.currency}${pricingData.pricePerNight} per night`);
+                // Pricing found from booking panel (log removed for performance)
             }
         }
 

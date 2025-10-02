@@ -118,10 +118,8 @@ export async function extractLocation(page) {
 
             return result;
         });
-
-        console.log(`[Location] Extracted: ${locationData.city}, ${locationData.state || ''} ${locationData.country || ''}`);
-        console.log(`[Location] Coordinates: ${locationData.coordinates.latitude}, ${locationData.coordinates.longitude}`);
         
+        // Removed console.logs for performance
         return locationData;
     } catch (error) {
         console.error(`[Location] Error extracting location: ${error.message}`);

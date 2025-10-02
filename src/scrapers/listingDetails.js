@@ -401,8 +401,11 @@ export async function extractReviewScore(page, listingId = null) {
             return result;
         });
 
-        // If we have reviews and listingId, navigate to reviews modal to get category ratings
-        if (scoreData.reviewsCount && scoreData.reviewsCount > 0 && listingId) {
+        // Skip category ratings extraction to save time (they're not critical for search)
+        // This saves 3-5 seconds per listing by avoiding modal navigation
+        console.log('[Review Score] Skipping category ratings for performance');
+        
+        if (false && scoreData.reviewsCount && scoreData.reviewsCount > 0 && listingId) {
             try {
                 const currentUrl = page.url();
                 const reviewsUrl = `https://www.airbnb.com/rooms/${listingId}/reviews`;
@@ -411,11 +414,11 @@ export async function extractReviewScore(page, listingId = null) {
                 await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
                 
                 // Wait for the modal to appear
-                await page.waitForSelector('[role="dialog"][aria-modal="true"]', { timeout: 10000 }).catch(() => {
+                await page.waitForSelector('[role="dialog"][aria-modal="true"]', { timeout: 5000 }).catch(() => {
                     console.log('[Review Score] Modal not found with role=dialog, continuing...');
                 });
                 
-                await fixedDelay(3000); // Wait for modal content to fully load
+                await fixedDelay(1500); // Reduced from 3000ms
                 
                 // Extract category ratings from the modal
                 const categoryRatings = await page.evaluate(() => {

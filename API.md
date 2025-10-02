@@ -118,10 +118,29 @@ Scrape multiple Airbnb listings for a given location.
       {
         "listingId": "12345678",
         "listingUrl": "https://www.airbnb.com/rooms/12345678",
-        "location": "Miami, FL",
+        "searchLocation": "Miami, FL",
+        "location": {
+          "address": "Miami Beach, FL",
+          "city": "Miami Beach",
+          "state": "Florida",
+          "country": "United States",
+          "coordinates": {
+            "latitude": 25.7907,
+            "longitude": -80.1300
+          }
+        },
         "title": "Luxury Beachfront Condo",
         "description": "Beautiful oceanfront property...",
         "images": ["https://...", "https://..."],
+        "overallRating": 4.95,
+        "reviewsCount": 123,
+        "pricing": {
+          "pricePerNight": 250,
+          "currency": "$",
+          "totalFor3Nights": 750,
+          "priceBeforeDiscount": null,
+          "discountPercentage": null
+        },
         "hostProfileId": "987654",
         "hostProfile": {
           "name": "John Doe",
@@ -130,6 +149,7 @@ Scrape multiple Airbnb listings for a given location.
           "reviewsCount": 150
         },
         "coHosts": [],
+        "maxGuests": 4,
         "bedrooms": 2,
         "bathrooms": 2,
         "isGuestFavorite": true,
@@ -145,19 +165,24 @@ Scrape multiple Airbnb listings for a given location.
           "Washer",
           "Free parking"
         ],
-        "reviews": [
-          {
-            "reviewId": "123",
-            "name": "Jane Smith",
-            "text": "Amazing place!",
-            "score": 5,
-            "reviewDetails": {
-              "city": "Los Angeles",
-              "country": "United States",
-              "date": "October 2024"
+        "reviews": {
+          "mostRelevant": [
+            {
+              "reviewId": "123",
+              "name": "Jane Smith",
+              "text": "Amazing place!",
+              "score": 5,
+              "reviewDetails": {
+                "city": "Los Angeles",
+                "country": "United States",
+                "date": "October 2024"
+              }
             }
-          }
-        ],
+          ],
+          "mostRecent": [],
+          "highestRated": [],
+          "lowestRated": []
+        },
         "houseRules": {
           "checkIn": "3:00 PM",
           "checkOut": "11:00 AM",
@@ -176,6 +201,12 @@ Scrape multiple Airbnb listings for a given location.
   }
 }
 ```
+
+**Note:** 
+- `pricing` field is `null` in quick mode (skipped for faster processing)
+- `hostProfile` field is `null` in quick mode
+- `reviews` in quick mode only includes `mostRelevant` category
+- `location` includes detailed address, city, state, country, and GPS coordinates
 
 **Error Response (400):**
 ```json
