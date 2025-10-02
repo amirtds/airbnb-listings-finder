@@ -5,6 +5,7 @@
 import { PlaywrightCrawler } from 'crawlee';
 import { createSearchCrawler } from '../../crawlers/searchCrawler.js';
 import { createDetailCrawler } from '../../crawlers/detailCrawler.js';
+import { getBrowserProcessCount } from '../../utils/processCleanup.js';
 
 /**
  * POST /api/scrape/search
@@ -51,6 +52,10 @@ export async function scrapeByLocation(req, res, next) {
         }
 
         console.log(`[API] Starting scrape for location: ${location}, count: ${numberOfListings}, quickMode: ${quickMode}`);
+        
+        // Log browser process count before starting
+        const browserCountBefore = await getBrowserProcessCount();
+        console.log(`[API] Browser processes before scrape: ${browserCountBefore}`);
 
         // Store found listings
         const foundListings = [];
@@ -112,22 +117,56 @@ export async function scrapeByLocation(req, res, next) {
         // CRITICAL: Clean up crawler resources to prevent memory leaks
         console.log('[API] Cleaning up crawler resources...');
         
+        // Cleanup search crawler
         if (searchCrawler) {
             try {
+                console.log('[API] Tearing down search crawler...');
                 await searchCrawler.teardown();
-                console.log('[API] Search crawler cleaned up');
+                
+                // Force garbage collection hint
+                searchCrawler = null;
+                console.log('[API] Search crawler cleaned up successfully');
             } catch (e) {
                 console.error('[API] Error cleaning up search crawler:', e);
+                searchCrawler = null;
             }
         }
         
+        // Cleanup detail crawler with extra safety
         if (detailCrawler) {
             try {
+                console.log('[API] Tearing down detail crawler...');
+                
+                // Get the browser pool and close all browsers explicitly
+                const browserPool = detailCrawler.browserPool;
+                if (browserPool) {
+                    console.log('[API] Destroying browser pool...');
+                    await browserPool.destroy();
+                }
+                
+                // Then teardown the crawler
                 await detailCrawler.teardown();
-                console.log('[API] Detail crawler cleaned up');
+                
+                // Force garbage collection hint
+                detailCrawler = null;
+                console.log('[API] Detail crawler cleaned up successfully');
             } catch (e) {
                 console.error('[API] Error cleaning up detail crawler:', e);
+                detailCrawler = null;
             }
         }
+        
+        // Force a small delay to ensure cleanup completes
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Log browser process count after cleanup
+        const browserCountAfter = await getBrowserProcessCount();
+        console.log(`[API] Browser processes after cleanup: ${browserCountAfter}`);
+        
+        if (browserCountAfter > 5) {
+            console.warn(`[API] WARNING: ${browserCountAfter} browser processes still running. Possible leak!`);
+        }
+        
+        console.log('[API] All cleanup completed');
     }
 }

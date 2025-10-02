@@ -15,6 +15,7 @@ import { scrapeByListingId } from './controllers/listingController.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { authenticate } from './middleware/auth.js';
+import { getBrowserProcessCount, killOrphanedBrowsers } from '../utils/processCleanup.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,14 +26,47 @@ app.use(express.json());
 app.use(requestLogger);
 
 // Health check endpoint (no auth required)
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
+    const browserCount = await getBrowserProcessCount();
     res.json({ 
         status: 'ok', 
         service: 'Airbnb Listings Scraper API',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
-        authentication: process.env.API_TOKENS ? 'enabled' : 'disabled (using default token)'
+        authentication: process.env.API_TOKENS ? 'enabled' : 'disabled (using default token)',
+        browserProcesses: browserCount,
+        warning: browserCount > 10 ? 'High number of browser processes detected' : null
     });
+});
+
+// Cleanup endpoint to kill orphaned browsers (protected with auth)
+app.post('/api/cleanup', authenticate, async (req, res) => {
+    try {
+        const beforeCount = await getBrowserProcessCount();
+        console.log(`[Cleanup] Browser processes before cleanup: ${beforeCount}`);
+        
+        await killOrphanedBrowsers();
+        
+        // Wait a bit for processes to die
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const afterCount = await getBrowserProcessCount();
+        console.log(`[Cleanup] Browser processes after cleanup: ${afterCount}`);
+        
+        res.json({
+            success: true,
+            message: 'Cleanup completed',
+            processesKilled: beforeCount - afterCount,
+            remainingProcesses: afterCount
+        });
+    } catch (error) {
+        console.error('[Cleanup] Error during cleanup:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Cleanup failed',
+            message: error.message
+        });
+    }
 });
 
 // API Routes (protected with authentication)
@@ -50,6 +84,7 @@ app.use((req, res) => {
         availableEndpoints: [
             'POST /api/scrape/search',
             'POST /api/scrape/listing',
+            'POST /api/cleanup',
             'GET /health'
         ]
     });

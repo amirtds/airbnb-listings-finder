@@ -36,8 +36,8 @@ export function createDetailCrawler(
     quickMode = false
 ) {
     // Increase concurrency for faster processing
-    // With 3 concurrent browsers, we can process 3 listings simultaneously
-    const concurrency = quickMode ? 5 : 3;
+    // Conservative concurrency to prevent resource exhaustion
+    const concurrency = quickMode ? 3 : 2;
     
     return new PlaywrightCrawler({
         // Set high limit to avoid premature shutdown
@@ -46,8 +46,14 @@ export function createDetailCrawler(
         
         // Increased concurrency for parallel processing
         maxConcurrency: concurrency,
-        minConcurrency: concurrency,
-        maxRequestsPerMinute: quickMode ? 30 : 15,
+        minConcurrency: 1,
+        maxRequestsPerMinute: quickMode ? 20 : 12,
+        
+        // CRITICAL: Ensure browsers are closed after each page
+        browserPoolOptions: {
+            closeInactiveBrowserAfterSecs: 30,
+            operationTimeoutSecs: 60,
+        },
         
         launchContext: getBrowserLaunchOptions(),
         preNavigationHooks: getPreNavigationHooks(),
@@ -166,5 +172,10 @@ export function createDetailCrawler(
         
         requestHandlerTimeoutSecs: 180,
         maxRequestRetries: 2,
+        
+        // Ensure proper cleanup on crawler shutdown
+        autoscaledPoolOptions: {
+            maxConcurrency: concurrency,
+        },
     });
 }
