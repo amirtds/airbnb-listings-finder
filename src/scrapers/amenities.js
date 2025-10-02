@@ -20,14 +20,14 @@ export async function scrapeAmenities(page, listingId, requestLog, minDelay, max
         
         const amenitiesUrl = `https://www.airbnb.com/rooms/${listingId}/amenities`;
         await page.goto(amenitiesUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await fixedDelay(3000);
+        await fixedDelay(1500);
         
         // Scroll to bottom of modal to load all amenities
         await page.evaluate(async () => {
             const scrollableDiv = document.querySelector('[data-testid="pdp-reviews-modal-scrollable-panel"], .dir.dir-ltr');
             if (scrollableDiv) {
                 scrollableDiv.scrollTo(0, scrollableDiv.scrollHeight);
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
         });
         

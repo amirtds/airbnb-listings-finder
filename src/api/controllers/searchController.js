@@ -27,7 +27,8 @@ export async function scrapeByLocation(req, res, next) {
             location, 
             numberOfListings = 10,
             minDelayBetweenRequests = 3000,
-            maxDelayBetweenRequests = 8000
+            maxDelayBetweenRequests = 8000,
+            quickMode = false
         } = req.body;
 
         // Validate input
@@ -49,7 +50,7 @@ export async function scrapeByLocation(req, res, next) {
             });
         }
 
-        console.log(`[API] Starting scrape for location: ${location}, count: ${numberOfListings}`);
+        console.log(`[API] Starting scrape for location: ${location}, count: ${numberOfListings}, quickMode: ${quickMode}`);
 
         // Store found listings
         const foundListings = [];
@@ -72,14 +73,16 @@ export async function scrapeByLocation(req, res, next) {
             detailedListings,
             numberOfListings,
             minDelayBetweenRequests,
-            maxDelayBetweenRequests
+            maxDelayBetweenRequests,
+            quickMode
         );
 
         const detailRequests = finalListings.map(listing => ({
             url: listing.listingUrl,
             userData: {
                 listingId: listing.listingId,
-                location: listing.location
+                location: listing.location,
+                quickMode: quickMode
             }
         }));
 

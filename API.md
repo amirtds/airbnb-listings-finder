@@ -87,7 +87,8 @@ Scrape multiple Airbnb listings for a given location.
   "location": "Miami, FL",
   "numberOfListings": 10,
   "minDelayBetweenRequests": 3000,
-  "maxDelayBetweenRequests": 8000
+  "maxDelayBetweenRequests": 8000,
+  "quickMode": false
 }
 ```
 
@@ -99,6 +100,11 @@ Scrape multiple Airbnb listings for a given location.
 | `numberOfListings` | number | No | 10 | Number of listings to scrape (1-100) |
 | `minDelayBetweenRequests` | number | No | 3000 | Minimum delay between requests in ms |
 | `maxDelayBetweenRequests` | number | No | 8000 | Maximum delay between requests in ms |
+| `quickMode` | boolean | No | false | Enable fast scraping (skips host profiles, only scrapes most relevant reviews) |
+
+**Performance:**
+- **Normal mode**: ~8-11 minutes for 100 listings (complete data)
+- **Quick mode**: ~1.7-2.7 minutes for 100 listings (skips host profiles, only most relevant reviews)
 
 **Success Response (200):**
 ```json

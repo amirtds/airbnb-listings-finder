@@ -42,14 +42,14 @@ export function createSearchCrawler(foundListings, numberOfListings, location) {
                 await page.evaluate(() => {
                     window.scrollBy(0, window.innerHeight);
                 });
-                await page.waitForTimeout(1000);
+                await page.waitForTimeout(600);
             }
             
             // Scroll to bottom
             await page.evaluate(() => {
                 window.scrollTo(0, document.body.scrollHeight);
             });
-            await page.waitForTimeout(2000);
+            await page.waitForTimeout(1000);
 
             // Extract listing URLs from the page
             const listingLinks = await page.$$eval('a[href*="/rooms/"]', (links) => {

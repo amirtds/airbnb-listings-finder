@@ -20,16 +20,16 @@ export async function scrapeHouseRules(page, listingId, requestLog, minDelay, ma
         
         const rulesUrl = `https://www.airbnb.com/rooms/${listingId}/house-rules`;
         await page.goto(rulesUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await fixedDelay(3000);
+        await fixedDelay(1500);
         
         // Check if there's a "Show more" button for additional rules and click it
         try {
             const showMoreBtn = await page.$('button:has-text("Show more")');
             if (showMoreBtn) {
                 await showMoreBtn.scrollIntoViewIfNeeded();
-                await fixedDelay(500);
+                await fixedDelay(300);
                 await showMoreBtn.click({ timeout: 5000 });
-                await fixedDelay(2000);
+                await fixedDelay(1000);
             }
         } catch (e) {
             requestLog.warning(`Could not click "Show more" for house rules: ${e.message}`);

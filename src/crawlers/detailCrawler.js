@@ -32,32 +32,40 @@ export function createDetailCrawler(
     detailedListings,
     numberOfListings,
     minDelayBetweenRequests,
-    maxDelayBetweenRequests
+    maxDelayBetweenRequests,
+    quickMode = false
 ) {
+    // Increase concurrency for faster processing
+    // With 3 concurrent browsers, we can process 3 listings simultaneously
+    const concurrency = quickMode ? 5 : 3;
+    
     return new PlaywrightCrawler({
         // Set high limit to avoid premature shutdown
         maxRequestsPerCrawl: Math.max(numberOfListings * 10, 100),
         headless: true,
         
-        // Rate limiting for detail pages
-        maxConcurrency: 1,
-        minConcurrency: 1,
-        maxRequestsPerMinute: 8,
+        // Increased concurrency for parallel processing
+        maxConcurrency: concurrency,
+        minConcurrency: concurrency,
+        maxRequestsPerMinute: quickMode ? 30 : 15,
         
         launchContext: getBrowserLaunchOptions(),
         preNavigationHooks: getPreNavigationHooks(),
         
         async requestHandler({ request, page, log: requestLog }) {
             const listingId = request.userData.listingId;
+            const quickModeEnabled = request.userData.quickMode || quickMode;
             requestLog.info(`Scraping details for listing ${listingId}: ${request.url}`);
             
             try {
-                // Random delay to appear more human-like
-                await randomDelay(minDelayBetweenRequests, maxDelayBetweenRequests, requestLog);
+                // Reduced delay for faster processing
+                const minDelay = quickModeEnabled ? 500 : Math.min(minDelayBetweenRequests, 2000);
+                const maxDelay = quickModeEnabled ? 1000 : Math.min(maxDelayBetweenRequests, 3000);
+                await randomDelay(minDelay, maxDelay, requestLog);
                 
-                // Wait for page to load
+                // Wait for page to load with reduced timeout
                 await page.waitForLoadState('domcontentloaded');
-                await fixedDelay(3000);
+                await fixedDelay(quickModeEnabled ? 1000 : 2000);
                 
                 // Extract main listing details
                 requestLog.info(`Extracting main details for listing ${listingId}`);
@@ -70,45 +78,51 @@ export function createDetailCrawler(
                 const guestFavorite = await isGuestFavorite(page);
                 const superhost = await isSuperhost(page);
                 
-                // Scrape amenities
+                // Scrape amenities with optimized delays
                 requestLog.info(`Scraping amenities for listing ${listingId}`);
                 const amenities = await scrapeAmenities(
                     page,
                     listingId,
                     requestLog,
-                    minDelayBetweenRequests,
-                    maxDelayBetweenRequests
+                    minDelay,
+                    maxDelay
                 );
                 
-                // Scrape reviews
+                // Scrape reviews with optimized delays (quick mode skips multiple categories)
                 requestLog.info(`Scraping reviews for listing ${listingId}`);
                 const reviews = await scrapeReviews(
                     page,
                     listingId,
                     requestLog,
-                    minDelayBetweenRequests,
-                    maxDelayBetweenRequests
+                    minDelay,
+                    maxDelay,
+                    quickModeEnabled
                 );
                 
-                // Scrape house rules
+                // Scrape house rules with optimized delays
                 requestLog.info(`Scraping house rules for listing ${listingId}`);
                 const houseRules = await scrapeHouseRules(
                     page,
                     listingId,
                     requestLog,
-                    minDelayBetweenRequests,
-                    maxDelayBetweenRequests
+                    minDelay,
+                    maxDelay
                 );
                 
-                // Scrape host profile
-                requestLog.info(`Scraping host profile for listing ${listingId}`);
-                const hostProfile = await scrapeHostProfile(
-                    page,
-                    hostProfileId,
-                    requestLog,
-                    minDelayBetweenRequests,
-                    maxDelayBetweenRequests
-                );
+                // Scrape host profile with optimized delays (skip in quick mode)
+                let hostProfile = null;
+                if (!quickModeEnabled) {
+                    requestLog.info(`Scraping host profile for listing ${listingId}`);
+                    hostProfile = await scrapeHostProfile(
+                        page,
+                        hostProfileId,
+                        requestLog,
+                        minDelay,
+                        maxDelay
+                    );
+                } else {
+                    requestLog.info(`Skipping host profile in quick mode for listing ${listingId}`);
+                }
                 
                 // Compile detailed listing data
                 const detailedListing = {

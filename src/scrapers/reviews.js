@@ -78,16 +78,17 @@ async function extractReviewsFromPage(page) {
  * @param {Object} requestLog - Logger instance
  * @param {number} minDelay - Minimum delay between requests
  * @param {number} maxDelay - Maximum delay between requests
+ * @param {boolean} quickMode - If true, only scrape most relevant reviews
  * @returns {Promise<Object>} Object with reviews categorized by sort type and HTML snapshots
  */
-export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDelay) {
+export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDelay, quickMode = false) {
     try {
         // Add random delay before navigating to reviews
         await randomDelay(minDelay, maxDelay, requestLog);
         
         const reviewsUrl = `https://www.airbnb.com/rooms/${listingId}/reviews`;
         await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await fixedDelay(3000);
+        await fixedDelay(quickMode ? 1500 : 2000);
         
         // Capture reviews modal HTML
         const reviewsModalHtml = await page.content();
@@ -100,7 +101,10 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
         };
         
         // Define sort options to iterate through
-        const sortOptions = [
+        // In quick mode, only scrape most relevant reviews to save time
+        const sortOptions = quickMode ? [
+            { key: 'mostRelevant', label: 'Most relevant', value: 'BEST_QUALITY' }
+        ] : [
             { key: 'mostRelevant', label: 'Most relevant', value: 'BEST_QUALITY' },
             { key: 'mostRecent', label: 'Most recent', value: 'RECENT' },
             { key: 'highestRated', label: 'Highest rated', value: 'HIGHEST_RATING' },
@@ -119,7 +123,7 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
                 }
                 
                 await sortButton.click();
-                await fixedDelay(1000);
+                await fixedDelay(quickMode ? 500 : 800);
                 
                 // Find and click the option in the dropdown
                 const optionClicked = await page.evaluate((optionLabel) => {
@@ -148,18 +152,20 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
                 }
                 
                 // Wait for reviews to reload
-                await fixedDelay(2000);
+                await fixedDelay(quickMode ? 1000 : 1500);
                 
                 // Scroll to load more reviews in this category
-                await page.evaluate(async () => {
+                // In quick mode, scroll less to save time
+                const scrollIterations = quickMode ? 2 : 4;
+                await page.evaluate(async (iterations) => {
                     const scrollableDiv = document.querySelector('[data-testid="pdp-reviews-modal-scrollable-panel"]');
                     if (scrollableDiv) {
-                        for (let i = 0; i < 5; i++) {
+                        for (let i = 0; i < iterations; i++) {
                             scrollableDiv.scrollTo(0, scrollableDiv.scrollHeight);
-                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            await new Promise(resolve => setTimeout(resolve, 600));
                         }
                     }
-                });
+                }, scrollIterations);
                 
                 // Extract reviews for this category
                 const reviews = await extractReviewsFromPage(page);
@@ -180,7 +186,7 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
                 requestLog.info(`Found ${uniqueReviews.length} unique ${sortOption.label} reviews (${reviews.length - uniqueReviews.length} duplicates removed)`);
                 
                 // Small delay before next category
-                await fixedDelay(1000);
+                await fixedDelay(quickMode ? 500 : 800);
                 
             } catch (categoryError) {
                 requestLog.error(`Error scraping ${sortOption.label} reviews: ${categoryError.message}`);
