@@ -19,6 +19,9 @@ import { createDetailCrawler } from '../../crawlers/detailCrawler.js';
  * }
  */
 export async function scrapeByLocation(req, res, next) {
+    let searchCrawler = null;
+    let detailCrawler = null;
+    
     try {
         const { 
             location, 
@@ -57,7 +60,7 @@ export async function scrapeByLocation(req, res, next) {
 
         // PHASE 1: Collect listing URLs
         console.log('[API] Phase 1: Collecting listing URLs...');
-        const searchCrawler = createSearchCrawler(foundListings, numberOfListings, location);
+        searchCrawler = createSearchCrawler(foundListings, numberOfListings, location);
         await searchCrawler.run([searchUrl]);
 
         const finalListings = foundListings.slice(0, numberOfListings);
@@ -65,7 +68,7 @@ export async function scrapeByLocation(req, res, next) {
 
         // PHASE 2: Scrape detailed data
         console.log('[API] Phase 2: Scraping detailed listing data...');
-        const detailCrawler = createDetailCrawler(
+        detailCrawler = createDetailCrawler(
             detailedListings,
             numberOfListings,
             minDelayBetweenRequests,
@@ -102,5 +105,26 @@ export async function scrapeByLocation(req, res, next) {
     } catch (error) {
         console.error('[API] Error in scrapeByLocation:', error);
         next(error);
+    } finally {
+        // CRITICAL: Clean up crawler resources to prevent memory leaks
+        console.log('[API] Cleaning up crawler resources...');
+        
+        if (searchCrawler) {
+            try {
+                await searchCrawler.teardown();
+                console.log('[API] Search crawler cleaned up');
+            } catch (e) {
+                console.error('[API] Error cleaning up search crawler:', e);
+            }
+        }
+        
+        if (detailCrawler) {
+            try {
+                await detailCrawler.teardown();
+                console.log('[API] Detail crawler cleaned up');
+            } catch (e) {
+                console.error('[API] Error cleaning up detail crawler:', e);
+            }
+        }
     }
 }
