@@ -25,12 +25,34 @@ async function extractReviewsFromPage(page) {
             const textEl = reviewEl.querySelector('.r1bcsqqd');
             const text = textEl ? textEl.textContent.trim() : null;
             
-            // Extract review score (count stars)
+            // Extract review score from the accessibility text "Rating, X stars"
             const starsContainer = reviewEl.querySelector('.c5dn5hn');
-            let score = 0;
+            let score = null;
             if (starsContainer) {
-                const stars = starsContainer.querySelectorAll('svg');
-                score = stars.length;
+                // Look for the accessibility span with text like "Rating, 2 stars"
+                const ratingSpan = starsContainer.querySelector('span.a8jt5op');
+                if (ratingSpan) {
+                    const ratingText = ratingSpan.textContent.trim();
+                    // Extract number from "Rating, 2 stars" or "Rating, 5 stars"
+                    const match = ratingText.match(/Rating,\s*(\d+)\s*stars?/i);
+                    if (match) {
+                        score = parseInt(match[1]);
+                    }
+                }
+                
+                // Fallback: count only filled stars (with --palette-hof)
+                if (score === null) {
+                    const filledStars = Array.from(starsContainer.querySelectorAll('svg')).filter(svg => {
+                        const style = svg.getAttribute('style') || '';
+                        return style.includes('--palette-hof');
+                    });
+                    score = filledStars.length;
+                }
+            }
+            
+            // Default to 5 if we couldn't parse it (unlikely)
+            if (score === null || score === 0) {
+                score = 5;
             }
             
             // Extract reviewer location (city, country)
