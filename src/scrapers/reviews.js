@@ -110,6 +110,17 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
         
         const reviewsUrl = `https://www.airbnb.com/rooms/${listingId}/reviews`;
         await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        
+        // Wait for reviews modal to appear
+        await page.waitForSelector('[role="dialog"][aria-modal="true"]', { timeout: 10000 }).catch(() => {
+            requestLog.warning('Reviews modal not found with expected selector');
+        });
+        
+        // Wait for review elements to load
+        await page.waitForSelector('[data-review-id]', { timeout: 10000 }).catch(() => {
+            requestLog.warning('No review elements found on page');
+        });
+        
         await fixedDelay(quickMode ? 1500 : 2000);
         
         // Capture reviews modal HTML
@@ -216,7 +227,15 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
         }
         
         const totalReviews = Object.values(reviewsByCategory).reduce((sum, arr) => sum + arr.length, 0);
-        requestLog.info(`Total reviews scraped across all categories: ${totalReviews}`);
+        
+        if (totalReviews === 0) {
+            requestLog.warning(`⚠ No reviews were scraped for listing ${listingId}. This may indicate:
+                - The listing has no reviews yet
+                - The reviews page failed to load
+                - Reviews are behind authentication/paywall`);
+        } else {
+            requestLog.info(`✓ Total reviews scraped across all categories: ${totalReviews}`);
+        }
         
         return {
             reviews: reviewsByCategory,

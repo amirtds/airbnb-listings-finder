@@ -117,8 +117,9 @@ export function createDetailCrawler(
                 );
                 
                 // Scrape reviews with optimized delays (quick mode skips multiple categories)
+                // Retry up to 2 times if reviews are empty
                 requestLog.info(`Scraping reviews for listing ${listingId}`);
-                const reviews = await scrapeReviews(
+                let reviews = await scrapeReviews(
                     page,
                     listingId,
                     requestLog,
@@ -126,6 +127,30 @@ export function createDetailCrawler(
                     maxDelay,
                     quickModeEnabled
                 );
+                
+                // Validate reviews and retry if empty
+                const totalReviews = Object.values(reviews.reviews || {}).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+                if (totalReviews === 0 && reviewScore?.reviewsCount > 0) {
+                    requestLog.warning(`No reviews found but listing has ${reviewScore.reviewsCount} reviews. Retrying...`);
+                    
+                    // Retry once more
+                    await fixedDelay(1000);
+                    reviews = await scrapeReviews(
+                        page,
+                        listingId,
+                        requestLog,
+                        minDelay,
+                        maxDelay,
+                        quickModeEnabled
+                    );
+                    
+                    const retryTotal = Object.values(reviews.reviews || {}).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+                    if (retryTotal === 0) {
+                        requestLog.warning(`Retry failed. Still no reviews found for listing ${listingId}`);
+                    } else {
+                        requestLog.info(`✓ Retry successful! Found ${retryTotal} reviews on second attempt`);
+                    }
+                }
                 
                 // Scrape house rules with optimized delays
                 requestLog.info(`Scraping house rules for listing ${listingId}`);
