@@ -72,12 +72,12 @@ export async function extractPricing(page, listingId) {
         // FALLBACK: If quick method fails, add dates to URL and extract price
         console.log('[Pricing] Quick method failed, trying with URL dates...');
         
-        // Calculate check-in (tomorrow) and check-out (4 days from now = 3 nights)
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const checkIn = tomorrow.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        // Calculate check-in (1 month from now) and check-out (1 month + 3 nights)
+        const checkInDate = new Date();
+        checkInDate.setMonth(checkInDate.getMonth() + 1); // 1 month from now
+        const checkIn = checkInDate.toISOString().split('T')[0]; // Format: YYYY-MM-DD
         
-        const checkOutDate = new Date(tomorrow);
+        const checkOutDate = new Date(checkInDate);
         checkOutDate.setDate(checkOutDate.getDate() + 3); // 3 nights
         const checkOut = checkOutDate.toISOString().split('T')[0];
         
