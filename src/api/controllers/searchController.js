@@ -20,7 +20,7 @@ import {
     extractReviewScore
 } from '../../scrapers/listingDetails.js';
 import { extractLocation } from '../../scrapers/location.js';
-import { extractPricing } from '../../scrapers/pricing.js';
+import { extractPricing, extractPricingFast } from '../../scrapers/pricing.js';
 import { randomDelay, fixedDelay } from '../../utils/delays.js';
 
 /**
@@ -275,11 +275,8 @@ async function scrapeListingDetails(context, listing, minDelay, maxDelay, quickM
         const locationData = await extractLocation(page);
         const reviewScore = await extractReviewScore(page, listing.listingId);
 
-        // Extract pricing (skip in quick mode)
-        let pricing = null;
-        if (!quickMode) {
-            pricing = await extractPricing(page, listing.listingId);
-        }
+        // Extract pricing - tries fast method first, then calendar if needed
+        const pricing = quickMode ? null : await extractPricing(page, listing.listingId);
 
         // Scrape amenities
         const amenities = await scrapeAmenities(page, listing.listingId, logger, minDelay, maxDelay);

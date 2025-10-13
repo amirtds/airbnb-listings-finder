@@ -54,16 +54,31 @@ export async function scrapeHouseRules(page, listingId, requestLog, minDelay, ma
                 beforeYouLeave: []
             };
             
-            // Extract check-in time
-            const checkInText = Array.from(document.querySelectorAll('.t1yw48g8')).find(el => el.textContent.includes('Check-in'));
-            if (checkInText) {
-                result.checkIn = checkInText.textContent.replace(/Check-in\s+(after|:)\s*/i, '').trim();
-            }
+            // Extract check-in time - search for "Check-in after" pattern
+            const allElements = document.querySelectorAll('span, div');
             
-            // Extract checkout time
-            const checkOutEl = Array.from(document.querySelectorAll('.t1yw48g8')).find(el => el.textContent.includes('Checkout'));
-            if (checkOutEl) {
-                result.checkOut = checkOutEl.textContent.replace(/Checkout\s+before\s*/i, '').trim();
+            for (const el of allElements) {
+                const text = el.textContent.trim();
+                
+                // Check-in: look for "Check-in after X:XX PM" or "Check-in: X:XX PM"
+                if (text.includes('Check-in') && !result.checkIn) {
+                    const match = text.match(/Check-in\s*(?:after|:)?\s*(\d+:\d+\s*(?:AM|PM))/i);
+                    if (match) {
+                        result.checkIn = match[1];
+                    }
+                }
+                
+                // Checkout: look for "Checkout before X:XX AM" or "Checkout: X:XX AM"
+                // Make sure it's a different element than check-in
+                if (text.includes('Checkout') && !text.includes('Check-in') && !result.checkOut) {
+                    const match = text.match(/Checkout\s*(?:before|:)?\s*(\d+:\d+\s*(?:AM|PM))/i);
+                    if (match) {
+                        result.checkOut = match[1];
+                    }
+                }
+                
+                // Stop if we found both
+                if (result.checkIn && result.checkOut) break;
             }
             
             // Check for self check-in

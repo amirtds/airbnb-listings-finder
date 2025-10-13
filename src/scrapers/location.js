@@ -74,11 +74,22 @@ export async function extractLocation(page) {
                 if (descriptionSpans.length > 0) {
                     const addressText = Array.from(descriptionSpans)
                         .map(span => span.textContent.trim())
+                        .filter(text => 
+                            text && 
+                            !text.includes('verified') && 
+                            !text.includes('Neighborhood Overview') &&
+                            text.length > 10
+                        )
                         .join(' ');
                     if (addressText) {
                         result.address = addressText;
                     }
                 }
+            }
+            
+            // If address is still the verification message, clear it
+            if (result.address && result.address.toLowerCase().includes('verified')) {
+                result.address = null;
             }
 
             // Method 3: Extract coordinates from Google Maps static image

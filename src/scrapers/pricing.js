@@ -20,126 +20,108 @@ export async function extractPricing(page, listingId) {
             discountPercentage: null
         };
 
-        // Navigating to availability calendar (console.log removed for performance)
-        
-        // Navigate to the calendar view
-        const calendarUrl = `https://www.airbnb.com/rooms/${listingId}#availability-calendar`;
-        await page.goto(calendarUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        
-        // Smart wait: Wait for calendar to appear instead of fixed delay
-        await page.waitForSelector('td[role="button"]', { timeout: 5000 }).catch(() => {
-            console.log('[Pricing] Calendar not found, using fallback');
-        });
-        await fixedDelay(800); // Reduced from 3000ms - just enough for calendar to stabilize
+        // FAST METHOD: Extract price directly from current page without navigation
+        const quickPricing = await page.evaluate(() => {
+            const result = {
+                currency: null,
+                pricePerNight: null
+            };
 
-        // Find and click available dates
-        
-        // Find available dates (not disabled, not checkout-only)
-        const availableDates = await page.evaluate(() => {
-            const dates = [];
-            const calendarDays = document.querySelectorAll('td[role="button"]');
-            
-            for (const day of calendarDays) {
-                const isDisabled = day.getAttribute('aria-disabled') === 'true';
-                const ariaLabel = day.getAttribute('aria-label') || '';
-                const isCheckoutOnly = ariaLabel.includes('only available for checkout');
-                const testId = day.querySelector('[data-testid]')?.getAttribute('data-testid');
+            // Method 1: Look for price with "night" in booking panel or anywhere
+            const allElements = document.querySelectorAll('span, div');
+            for (const el of allElements) {
+                const text = el.textContent.trim();
+                // Skip if it says "Add dates"
+                if (text.includes('Add dates')) continue;
                 
-                // Only include days that are available for check-in
-                if (!isDisabled && !isCheckoutOnly && testId) {
-                    dates.push({
-                        testId: testId,
-                        ariaLabel: ariaLabel
-                    });
+                // Match patterns like "$141 night", "$141 / night", "$141/night"
+                const nightMatch = text.match(/([€$£¥₹])\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:\/\s*)?night/i);
+                if (nightMatch) {
+                    result.currency = nightMatch[1];
+                    result.pricePerNight = parseFloat(nightMatch[2].replace(/,/g, ''));
+                    break;
                 }
-                
-                // Stop after finding enough dates
-                if (dates.length >= 10) break;
             }
-            
-            return dates;
+
+            // Method 2: Look in structured pricing data attributes
+            if (!result.pricePerNight) {
+                const priceElements = document.querySelectorAll('[data-testid*="price"], [class*="price"]');
+                for (const el of priceElements) {
+                    const text = el.textContent.trim();
+                    if (text.includes('Add dates')) continue;
+                    
+                    const match = text.match(/([€$£¥₹])\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+                    if (match && text.toLowerCase().includes('night')) {
+                        result.currency = match[1];
+                        result.pricePerNight = parseFloat(match[2].replace(/,/g, ''));
+                        break;
+                    }
+                }
+            }
+
+            return result;
         });
 
-        // Found available dates (log removed for performance)
-
-        let calendarPricing = {
-            currency: null,
-            totalPrice: null
-        };
-
-        // Try to select dates and get pricing
-        if (availableDates.length >= 4) {
-            try {
-                // Click check-in date using JavaScript (bypasses viewport issues)
-                const checkInTestId = availableDates[0].testId;
-                await page.evaluate((testId) => {
-                    // Find all elements with this testId and click the visible one
-                    const elements = document.querySelectorAll(`[data-testid="${testId}"]`);
-                    for (const el of elements) {
-                        const rect = el.getBoundingClientRect();
-                        // Check if element is in viewport
-                        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-                            el.click();
-                            return;
-                        }
-                    }
-                    // If none in viewport, scroll first one into view and click
-                    if (elements[0]) {
-                        elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        setTimeout(() => elements[0].click(), 300);
-                    }
-                }, checkInTestId);
-                // Check-in selected (log removed for performance)
-                await fixedDelay(600); // Reduced from 1500ms
-
-                // Click check-out date using JavaScript
-                const checkOutTestId = availableDates[3].testId;
-                await page.evaluate((testId) => {
-                    const elements = document.querySelectorAll(`[data-testid="${testId}"]`);
-                    for (const el of elements) {
-                        const rect = el.getBoundingClientRect();
-                        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-                            el.click();
-                            return;
-                        }
-                    }
-                    if (elements[0]) {
-                        elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        setTimeout(() => elements[0].click(), 300);
-                    }
-                }, checkOutTestId);
-                // Check-out selected (log removed for performance)
-                await fixedDelay(800); // Reduced from 2000ms
-
-                // Extract the price that appears
-                calendarPricing = await page.evaluate(() => {
-                    const result = {
-                        currency: null,
-                        totalPrice: null
-                    };
-
-                    // Look for price breakdown text like "$309 for 3 nights"
-                    const priceElements = document.querySelectorAll('span, div');
-                    for (const el of priceElements) {
-                        const text = el.textContent || '';
-                        
-                        // Match patterns like "$309 for 3 nights" or "$309\nfor 3 nights"
-                        const priceMatch = text.match(/([€$£¥₹])\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:for\s*3\s*nights?)?/i);
-                        if (priceMatch && text.includes('3 night')) {
-                            result.currency = priceMatch[1];
-                            result.totalPrice = parseFloat(priceMatch[2].replace(/,/g, ''));
-                            break;
-                        }
-                    }
-
-                    return result;
-                });
-
-                // Price extracted from calendar (log removed for performance)
-            } catch (error) {
-                // Error selecting dates (log removed for performance)
-            }
+        if (quickPricing.pricePerNight && quickPricing.pricePerNight > 0) {
+            pricingData.currency = quickPricing.currency;
+            pricingData.pricePerNight = quickPricing.pricePerNight;
+            console.log(`[Pricing] Found price: ${quickPricing.currency}${quickPricing.pricePerNight}/night`);
+            return pricingData;
         }
+
+        // FALLBACK: If quick method fails, add dates to URL and extract price
+        console.log('[Pricing] Quick method failed, trying with URL dates...');
+        
+        // Calculate check-in (tomorrow) and check-out (4 days from now = 3 nights)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const checkIn = tomorrow.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        
+        const checkOutDate = new Date(tomorrow);
+        checkOutDate.setDate(checkOutDate.getDate() + 3); // 3 nights
+        const checkOut = checkOutDate.toISOString().split('T')[0];
+        
+        // Navigate with dates in URL
+        const urlWithDates = `https://www.airbnb.com/rooms/${listingId}?check_in=${checkIn}&check_out=${checkOut}`;
+        await page.goto(urlWithDates, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        
+        // Wait for pricing to load
+        await fixedDelay(800); // Wait for price to render
+
+        // Extract price from page with dates
+        let calendarPricing = await page.evaluate(() => {
+            const result = {
+                currency: null,
+                totalPrice: null
+            };
+
+            // Look for price breakdown text like "$856 for 3 nights"
+            const allText = document.body.innerText;
+            
+            // Method 1: Look for exact pattern "$XXX for 3 nights"
+            const exactMatch = allText.match(/([€$£¥₹])\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s+for\s+3\s+nights?/i);
+            if (exactMatch) {
+                result.currency = exactMatch[1];
+                result.totalPrice = parseFloat(exactMatch[2].replace(/,/g, ''));
+                return result;
+            }
+            
+            // Method 2: Look in specific elements
+            const priceElements = document.querySelectorAll('span.a8jt5op, span[class*="price"], div[class*="price"], span._pf2f4z');
+            for (const el of priceElements) {
+                const text = el.textContent || '';
+                if (text.includes('for 3 night')) {
+                    const priceMatch = text.match(/([€$£¥₹])\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+                    if (priceMatch) {
+                        result.currency = priceMatch[1];
+                        result.totalPrice = parseFloat(priceMatch[2].replace(/,/g, ''));
+                        break;
+                    }
+                }
+            }
+
+            return result;
+        });
 
         if (calendarPricing.totalPrice && calendarPricing.totalPrice > 0) {
             pricingData.currency = calendarPricing.currency;
@@ -147,43 +129,60 @@ export async function extractPricing(page, listingId) {
             pricingData.pricePerNight = Math.round(calendarPricing.totalPrice / 3);
             
             // Pricing found from calendar (log removed for performance)
-        } else {
-            // Fallback: Try to extract from booking panel on main page
-            
-            await page.goto(`https://www.airbnb.com/rooms/${listingId}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-            await fixedDelay(800); // Reduced from 2000ms
-            
-            const fallbackPricing = await page.evaluate(() => {
-                const result = {
-                    currency: null,
-                    pricePerNight: null
-                };
-
-                // Look for price in the booking panel
-                const priceElements = document.querySelectorAll('[data-plugin-in-point-id="BOOK_IT_SIDEBAR"] span, [data-section-id="BOOK_IT_SIDEBAR"] span');
-                for (const el of priceElements) {
-                    const text = el.textContent.trim();
-                    const priceMatch = text.match(/([€$£¥₹])\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/);
-                    if (priceMatch) {
-                        result.currency = priceMatch[1];
-                        result.pricePerNight = parseFloat(priceMatch[2].replace(/,/g, ''));
-                        break;
-                    }
-                }
-
-                return result;
-            });
-
-            if (fallbackPricing.pricePerNight) {
-                pricingData.currency = fallbackPricing.currency;
-                pricingData.pricePerNight = fallbackPricing.pricePerNight;
-                // Pricing found from booking panel (log removed for performance)
-            }
         }
 
         return pricingData;
     } catch (error) {
-        console.error(`[Pricing] Error extracting pricing: ${error.message}`);
+        console.error(`[Pricing] Error: ${error.message}`);
+        return {
+            pricePerNight: null,
+            currency: null,
+            totalFor3Nights: null,
+            priceBeforeDiscount: null,
+            discountPercentage: null
+        };
+    }
+}
+
+/**
+ * FAST pricing extraction - extracts from current page without navigation
+ * Use this for bulk scraping to save time
+ */
+export async function extractPricingFast(page) {
+    try {
+        const pricing = await page.evaluate(() => {
+            const result = {
+                currency: null,
+                pricePerNight: null
+            };
+
+            // Look for price with "night" keyword anywhere on page
+            const allElements = document.querySelectorAll('span, div');
+            for (const el of allElements) {
+                const text = el.textContent.trim();
+                // Skip if it says "Add dates"
+                if (text.includes('Add dates')) continue;
+                
+                // Match patterns like "$141 night", "$141 / night", "$141/night"
+                const nightMatch = text.match(/([€$£¥₹])\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:\/\s*)?night/i);
+                if (nightMatch) {
+                    result.currency = nightMatch[1];
+                    result.pricePerNight = parseFloat(nightMatch[2].replace(/,/g, ''));
+                    break;
+                }
+            }
+
+            return result;
+        });
+
+        return {
+            pricePerNight: pricing.pricePerNight,
+            currency: pricing.currency,
+            totalFor3Nights: null,
+            priceBeforeDiscount: null,
+            discountPercentage: null
+        };
+    } catch (error) {
         return {
             pricePerNight: null,
             currency: null,
