@@ -13,7 +13,7 @@ import { getBrowserLaunchOptions, getPreNavigationHooks } from '../utils/browser
  * @returns {PlaywrightCrawler} Configured crawler instance
  */
 export function createSearchCrawler(foundListings, numberOfListings, location) {
-    return new PlaywrightCrawler({
+    const crawler = new PlaywrightCrawler({
         maxRequestsPerCrawl: 15,
         
         // Rate limiting to avoid being blocked
@@ -22,6 +22,10 @@ export function createSearchCrawler(foundListings, numberOfListings, location) {
         maxRequestsPerMinute: 10,
         
         headless: true,
+        
+        // Use in-memory request queue to prevent state conflicts between requests
+        useSessionPool: false,
+        persistCookiesPerSession: false,
         
         launchContext: getBrowserLaunchOptions(),
         preNavigationHooks: getPreNavigationHooks(),
@@ -124,6 +128,8 @@ export function createSearchCrawler(foundListings, numberOfListings, location) {
         requestHandlerTimeoutSecs: 120,
         maxRequestRetries: 3,
     });
+    
+    return crawler;
 }
 
 /**

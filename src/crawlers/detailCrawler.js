@@ -42,7 +42,7 @@ export function createDetailCrawler(
     // Conservative concurrency to prevent resource exhaustion
     const concurrency = quickMode ? 3 : 2;
     
-    return new PlaywrightCrawler({
+    const crawler = new PlaywrightCrawler({
         // Set high limit to avoid premature shutdown
         maxRequestsPerCrawl: Math.max(numberOfListings * 10, 100),
         headless: true,
@@ -51,6 +51,10 @@ export function createDetailCrawler(
         maxConcurrency: concurrency,
         minConcurrency: 1,
         maxRequestsPerMinute: quickMode ? 20 : 12,
+        
+        // Use in-memory request queue to prevent state conflicts between requests
+        useSessionPool: false,
+        persistCookiesPerSession: false,
         
         // CRITICAL: Ensure browsers are closed after each page
         browserPoolOptions: {
@@ -233,4 +237,6 @@ export function createDetailCrawler(
             maxConcurrency: concurrency,
         },
     });
+    
+    return crawler;
 }
