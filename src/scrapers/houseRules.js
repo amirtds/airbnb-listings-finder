@@ -15,21 +15,24 @@ import { randomDelay, fixedDelay } from '../utils/delays.js';
  */
 export async function scrapeHouseRules(page, listingId, requestLog, minDelay, maxDelay) {
     try {
-        // Add random delay before navigating to house rules
-        await randomDelay(minDelay, maxDelay, requestLog);
-        
+        // Navigate to house rules page
         const rulesUrl = `https://www.airbnb.com/rooms/${listingId}/house-rules`;
         await page.goto(rulesUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await fixedDelay(1500);
+        
+        // Wait for house rules content to appear
+        await page.waitForSelector('.t1yw48g8, [role="dialog"]', { timeout: 5000 }).catch(() => {
+            requestLog.warning('House rules content selector not found');
+        });
+        await fixedDelay(800); // Increased from 400ms - house rules need more time to render
         
         // Check if there's a "Show more" button for additional rules and click it
         try {
             const showMoreBtn = await page.$('button:has-text("Show more")');
             if (showMoreBtn) {
                 await showMoreBtn.scrollIntoViewIfNeeded();
-                await fixedDelay(300);
+                await fixedDelay(200); // Slightly increased from 100ms
                 await showMoreBtn.click({ timeout: 5000 });
-                await fixedDelay(1000);
+                await fixedDelay(500); // Increased from 300ms - wait for expanded content
             }
         } catch (e) {
             requestLog.warning(`Could not click "Show more" for house rules: ${e.message}`);

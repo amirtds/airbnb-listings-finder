@@ -66,9 +66,9 @@ export async function extractDescription(page, requestLog) {
                 if (btnText && btnText.includes('Show more')) {
                     // Scroll button into view and click
                     await showMoreBtn.scrollIntoViewIfNeeded();
-                    await fixedDelay(500);
+                    await fixedDelay(100); // Reduced from 500ms
                     await showMoreBtn.click({ timeout: 5000 }).catch(() => {});
-                    await fixedDelay(1000);
+                    await fixedDelay(300); // Reduced from 1000ms
                     
                     // Extract from modal
                     description = await page.evaluate(() => {
@@ -94,7 +94,7 @@ export async function extractDescription(page, requestLog) {
                     const closeBtn = await page.$('[aria-label="Close"]');
                     if (closeBtn) {
                         await closeBtn.click();
-                        await fixedDelay(500);
+                        await fixedDelay(200); // Reduced from 500ms
                     }
                 }
             }
@@ -418,7 +418,7 @@ export async function extractReviewScore(page, listingId = null) {
                     console.log('[Review Score] Modal not found with role=dialog, continuing...');
                 });
                 
-                await fixedDelay(1500); // Reduced from 3000ms
+                await fixedDelay(600); // Reduced from 1500ms
                 
                 // Extract category ratings from the modal
                 const categoryRatings = await page.evaluate(() => {
@@ -490,7 +490,7 @@ export async function extractReviewScore(page, listingId = null) {
                 // Navigate back to the original listing page
                 console.log('[Review Score] Navigating back to listing page...');
                 await page.goto(currentUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-                await fixedDelay(1000);
+                await fixedDelay(400); // Reduced from 1000ms
                 
             } catch (modalError) {
                 console.log(`[Review Score] Could not extract category ratings: ${modalError.message}`);

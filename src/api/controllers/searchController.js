@@ -31,8 +31,8 @@ import { randomDelay, fixedDelay } from '../../utils/delays.js';
  * {
  *   "location": "Miami, FL",
  *   "numberOfListings": 10,
- *   "minDelayBetweenRequests": 3000,
- *   "maxDelayBetweenRequests": 8000
+ *   "minDelayBetweenRequests": 500,
+ *   "maxDelayBetweenRequests": 1000
  * }
  */
 export async function scrapeByLocation(req, res, next) {
@@ -42,8 +42,8 @@ export async function scrapeByLocation(req, res, next) {
         const { 
             location, 
             numberOfListings = 10,
-            minDelayBetweenRequests = 3000,
-            maxDelayBetweenRequests = 8000,
+            minDelayBetweenRequests = 500,  // Reduced from 3000ms
+            maxDelayBetweenRequests = 1000,  // Reduced from 8000ms
             quickMode = false
         } = req.body;
 
@@ -258,14 +258,10 @@ async function scrapeListingDetails(context, listing, minDelay, maxDelay, quickM
             'Upgrade-Insecure-Requests': '1'
         });
 
-        // Add delay between requests
-        const delay = quickMode ? 500 : Math.min(minDelay, 1000);
-        await fixedDelay(delay);
-
         // Navigate to listing
         await page.goto(listing.listingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.waitForSelector('h1', { timeout: 5000 }).catch(() => {});
-        await fixedDelay(quickMode ? 500 : 800);
+        await fixedDelay(quickMode ? 300 : 500); // Reduced from 500/800ms
 
         // Extract main listing details
         const title = await extractTitle(page);
@@ -286,18 +282,18 @@ async function scrapeListingDetails(context, listing, minDelay, maxDelay, quickM
         }
 
         // Scrape amenities
-        const amenities = await scrapeAmenities(page, listing.listingId, logger, 500, 1000);
+        const amenities = await scrapeAmenities(page, listing.listingId, logger, minDelay, maxDelay);
 
         // Scrape reviews
-        const reviews = await scrapeReviews(page, listing.listingId, logger, 500, 1000, quickMode);
+        const reviews = await scrapeReviews(page, listing.listingId, logger, minDelay, maxDelay, quickMode);
 
         // Scrape house rules
-        const houseRules = await scrapeHouseRules(page, listing.listingId, logger, 500, 1000);
+        const houseRules = await scrapeHouseRules(page, listing.listingId, logger, minDelay, maxDelay);
 
         // Scrape host profile (skip in quick mode)
         let hostProfile = null;
         if (!quickMode) {
-            hostProfile = await scrapeHostProfile(page, hostProfileId, logger, 500, 1000);
+            hostProfile = await scrapeHostProfile(page, hostProfileId, logger, minDelay, maxDelay);
         }
 
         await page.close();

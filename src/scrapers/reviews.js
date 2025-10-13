@@ -105,9 +105,7 @@ async function extractReviewsFromPage(page) {
  */
 export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDelay, quickMode = false) {
     try {
-        // Add random delay before navigating to reviews
-        await randomDelay(minDelay, maxDelay, requestLog);
-        
+        // Navigate to reviews page
         const reviewsUrl = `https://www.airbnb.com/rooms/${listingId}/reviews`;
         await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         
@@ -121,7 +119,7 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
             requestLog.warning('No review elements found on page');
         });
         
-        await fixedDelay(quickMode ? 1500 : 2000);
+        await fixedDelay(quickMode ? 400 : 600); // Reduced from 1500/2000ms
         
         // Capture reviews modal HTML
         const reviewsModalHtml = await page.content();
@@ -156,7 +154,7 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
                 }
                 
                 await sortButton.click();
-                await fixedDelay(quickMode ? 500 : 800);
+                await fixedDelay(quickMode ? 200 : 300); // Reduced from 500/800ms
                 
                 // Find and click the option in the dropdown
                 const optionClicked = await page.evaluate((optionLabel) => {
@@ -180,12 +178,12 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
                     requestLog.warning(`Could not find option: ${sortOption.label}`);
                     // Close the dropdown by clicking button again
                     await sortButton.click();
-                    await fixedDelay(500);
+                    await fixedDelay(200); // Reduced from 500ms
                     continue;
                 }
                 
                 // Wait for reviews to reload
-                await fixedDelay(quickMode ? 1000 : 1500);
+                await fixedDelay(quickMode ? 400 : 600); // Reduced from 1000/1500ms
                 
                 // Scroll to load more reviews in this category
                 // In quick mode, scroll less to save time
@@ -219,7 +217,7 @@ export async function scrapeReviews(page, listingId, requestLog, minDelay, maxDe
                 requestLog.info(`Found ${uniqueReviews.length} unique ${sortOption.label} reviews (${reviews.length - uniqueReviews.length} duplicates removed)`);
                 
                 // Small delay before next category
-                await fixedDelay(quickMode ? 500 : 800);
+                await fixedDelay(quickMode ? 200 : 300); // Reduced from 500/800ms
                 
             } catch (categoryError) {
                 requestLog.error(`Error scraping ${sortOption.label} reviews: ${categoryError.message}`);

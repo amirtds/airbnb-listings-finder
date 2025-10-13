@@ -15,12 +15,10 @@ import { randomDelay, fixedDelay } from '../utils/delays.js';
  */
 export async function scrapeAmenities(page, listingId, requestLog, minDelay, maxDelay) {
     try {
-        // Add random delay before navigating to amenities
-        await randomDelay(minDelay, maxDelay, requestLog);
-        
+        // Navigate to amenities page (no delay needed - browser handles rate limiting)
         const amenitiesUrl = `https://www.airbnb.com/rooms/${listingId}/amenities`;
         await page.goto(amenitiesUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await fixedDelay(1500);
+        await fixedDelay(400); // Reduced from 1500ms - just enough for content to render
         
         // Scroll to bottom of modal to load all amenities
         await page.evaluate(async () => {

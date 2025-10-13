@@ -19,12 +19,10 @@ export async function scrapeHostProfile(page, hostProfileId, requestLog, minDela
             return null;
         }
         
-        // Add random delay before navigating to host profile
-        await randomDelay(minDelay, maxDelay, requestLog);
-        
+        // Navigate to host profile page
         const hostUrl = `https://www.airbnb.com/users/show/${hostProfileId}`;
         await page.goto(hostUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await fixedDelay(3000);
+        await fixedDelay(600); // Reduced from 3000ms
         
         // Extract host profile data
         const hostData = await page.evaluate(() => {
