@@ -84,10 +84,10 @@ export async function extractPricing(page, listingId) {
         // Navigate with dates in URL
         const urlWithDates = `https://www.airbnb.com/rooms/${listingId}?check_in=${checkIn}&check_out=${checkOut}`;
         console.log(`[Pricing] Navigating to URL with dates: ${urlWithDates}`)
-        await page.goto(urlWithDates, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.goto(urlWithDates, { waitUntil: 'networkidle', timeout: 30000 });
         
         // Wait for pricing to load
-        await fixedDelay(800); // Wait for price to render
+        await fixedDelay(1500); // Increased wait for price to render
 
         // Extract price from page with dates
         let calendarPricing = await page.evaluate(() => {

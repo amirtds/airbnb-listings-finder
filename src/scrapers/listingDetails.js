@@ -66,9 +66,9 @@ export async function extractDescription(page, requestLog) {
                 if (btnText && btnText.includes('Show more')) {
                     // Scroll button into view and click
                     await showMoreBtn.scrollIntoViewIfNeeded();
-                    await fixedDelay(100); // Reduced from 500ms
+                    await fixedDelay(300);
                     await showMoreBtn.click({ timeout: 5000 }).catch(() => {});
-                    await fixedDelay(300); // Reduced from 1000ms
+                    await fixedDelay(800); // Increased wait for modal to load
                     
                     // Extract from modal
                     description = await page.evaluate(() => {
@@ -94,7 +94,7 @@ export async function extractDescription(page, requestLog) {
                     const closeBtn = await page.$('[aria-label="Close"]');
                     if (closeBtn) {
                         await closeBtn.click();
-                        await fixedDelay(200); // Reduced from 500ms
+                        await fixedDelay(400);
                     }
                 }
             }

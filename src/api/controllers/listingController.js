@@ -101,9 +101,9 @@ export async function scrapeByListingId(req, res, next) {
         const listingUrl = `https://www.airbnb.com/rooms/${listingId}`;
         logger.info(`Navigating to ${listingUrl}`);
         
-        // Fast navigation
-        await page.goto(listingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await fixedDelay(800); // Reduced from 2000ms - minimal wait for page to stabilize
+        // Navigate and wait for network to be idle for more reliable scraping
+        await page.goto(listingUrl, { waitUntil: 'networkidle', timeout: 30000 });
+        await fixedDelay(1500); // Increased wait time to ensure page is fully loaded
 
         // Capture listing page HTML
         logger.info('Capturing listing page HTML...');
@@ -112,15 +112,27 @@ export async function scrapeByListingId(req, res, next) {
         // Extract main listing details
         logger.info('Extracting main details...');
         const title = await extractTitle(page);
+        if (!title) {
+            logger.warning('Title extraction failed - page may not be fully loaded');
+        }
         logger.info(`Title: ${title || 'NOT FOUND'}`);
         
         const description = await extractDescription(page, logger);
+        if (!description) {
+            logger.warning('Description extraction failed');
+        }
         logger.info(`Description: ${description ? description.substring(0, 50) + '...' : 'NOT FOUND'}`);
         
         const images = await extractImages(page);
+        if (images.length === 0) {
+            logger.warning('No images extracted');
+        }
         logger.info(`Images: ${images.length} found`);
         
         const hostProfileId = await extractHostProfileId(page);
+        if (!hostProfileId) {
+            logger.warning('Host Profile ID extraction failed');
+        }
         logger.info(`Host Profile ID: ${hostProfileId || 'NOT FOUND'}`);
         
         const coHosts = await extractCoHosts(page);
