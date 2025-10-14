@@ -206,11 +206,11 @@ export async function scrapeByListingId(req, res, next) {
             reviewScore: reviewScore,
             amenities: amenities,
             reviews: reviews.reviews, // Extract reviews from the new structure
-            houseRules: houseRules,
-            htmlSnapshots: {
-                listingPageHtml: listingPageHtml
-                // reviewsModalHtml: reviews.htmlSnapshots?.reviewsModalHtml || null
-            }
+            houseRules: houseRules
+            // htmlSnapshots: {
+            //     listingPageHtml: listingPageHtml
+            //     reviewsModalHtml: reviews.htmlSnapshots?.reviewsModalHtml || null
+            // }
         };
 
         logger.info('Scraping completed successfully');
