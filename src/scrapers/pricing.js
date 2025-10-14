@@ -74,7 +74,7 @@ export async function extractPricing(page, listingId) {
         
         // Calculate check-in (1 month from now) and check-out (1 month + 3 nights)
         const checkInDate = new Date();
-        checkInDate.setMonth(checkInDate.getMonth() + 1); // 1 month from now
+        checkInDate.setMonth(checkInDate.getMonth() + 2); // 1 month from now
         const checkIn = checkInDate.toISOString().split('T')[0]; // Format: YYYY-MM-DD
         
         const checkOutDate = new Date(checkInDate);
@@ -83,6 +83,7 @@ export async function extractPricing(page, listingId) {
         
         // Navigate with dates in URL
         const urlWithDates = `https://www.airbnb.com/rooms/${listingId}?check_in=${checkIn}&check_out=${checkOut}`;
+        console.log(`[Pricing] Navigating to URL with dates: ${urlWithDates}`)
         await page.goto(urlWithDates, { waitUntil: 'domcontentloaded', timeout: 30000 });
         
         // Wait for pricing to load
@@ -107,7 +108,7 @@ export async function extractPricing(page, listingId) {
             }
             
             // Method 2: Look in specific elements
-            const priceElements = document.querySelectorAll('span.a8jt5op, span[class*="price"], div[class*="price"], span._pf2f4z');
+            const priceElements = document.querySelectorAll('span.a8jt5op, span[class*="pricing"], div[class*="pricing"], span._pf2f4z');
             for (const el of priceElements) {
                 const text = el.textContent || '';
                 if (text.includes('for 3 night')) {
