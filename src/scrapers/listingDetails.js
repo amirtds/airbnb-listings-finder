@@ -244,8 +244,8 @@ export async function extractCoHosts(page) {
     return await page.evaluate(() => {
         const coHostsList = [];
         
-        // Find the Co-hosts section by looking for h3 containing "Co-hosts" or "Co-host"
-        const headings = Array.from(document.querySelectorAll('h3'));
+        // Method 1: Find the Co-hosts section by looking for h3 containing "Co-hosts" or "Co-host"
+        const headings = Array.from(document.querySelectorAll('h3, h2'));
         const coHostHeading = headings.find(h => {
             const text = h.textContent.trim();
             return text.includes('Co-host') || text.includes('co-host');
@@ -254,8 +254,10 @@ export async function extractCoHosts(page) {
         if (coHostHeading) {
             // Find the list element that follows the heading
             let listElement = coHostHeading.nextElementSibling;
-            while (listElement && listElement.tagName !== 'UL') {
+            let attempts = 0;
+            while (listElement && listElement.tagName !== 'UL' && attempts < 5) {
                 listElement = listElement.nextElementSibling;
+                attempts++;
             }
             
             if (listElement) {
@@ -293,6 +295,37 @@ export async function extractCoHosts(page) {
                         });
                     }
                 });
+            }
+        }
+        
+        // Method 2: If no co-hosts found, look in the entire HOST_OVERVIEW section
+        if (coHostsList.length === 0) {
+            const hostSection = document.querySelector('[data-section-id="HOST_OVERVIEW_DEFAULT"]');
+            if (hostSection) {
+                const allLinks = hostSection.querySelectorAll('a[href*="/users/show/"]');
+                // Skip the first link (main host) and get the rest as co-hosts
+                const linkArray = Array.from(allLinks);
+                if (linkArray.length > 1) {
+                    for (let i = 1; i < linkArray.length; i++) {
+                        const link = linkArray[i];
+                        const match = link.href.match(/\/users\/show\/(\d+)/);
+                        if (match) {
+                            const profileId = match[1];
+                            let name = null;
+                            const ariaLabel = link.getAttribute('aria-label');
+                            if (ariaLabel) {
+                                const nameMatch = ariaLabel.match(/host,\s*([^.]+)/);
+                                if (nameMatch) {
+                                    name = nameMatch[1].trim();
+                                }
+                            }
+                            coHostsList.push({
+                                name: name,
+                                profileId: profileId
+                            });
+                        }
+                    }
+                }
             }
         }
         

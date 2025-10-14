@@ -15,19 +15,22 @@ import { randomDelay, fixedDelay } from '../utils/delays.js';
  */
 export async function scrapeAmenities(page, listingId, requestLog, minDelay, maxDelay) {
     try {
-        // Navigate to amenities page (no delay needed - browser handles rate limiting)
+        // Navigate to amenities page
         const amenitiesUrl = `https://www.airbnb.com/rooms/${listingId}/amenities`;
-        await page.goto(amenitiesUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await fixedDelay(400); // Reduced from 1500ms - just enough for content to render
+        requestLog.info(`Navigating to amenities page: ${amenitiesUrl}`);
+        await page.goto(amenitiesUrl, { waitUntil: 'networkidle', timeout: 30000 });
+        await fixedDelay(1200); // Increased wait time for amenities to load
         
         // Scroll to bottom of modal to load all amenities
         await page.evaluate(async () => {
             const scrollableDiv = document.querySelector('[data-testid="pdp-reviews-modal-scrollable-panel"], .dir.dir-ltr');
             if (scrollableDiv) {
                 scrollableDiv.scrollTo(0, scrollableDiv.scrollHeight);
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 800));
             }
         });
+        
+        await fixedDelay(500); // Additional wait after scroll
         
         // Extract amenities - try multiple selectors
         const amenities = await page.evaluate(() => {
@@ -57,10 +60,29 @@ export async function scrapeAmenities(page, listingId, requestLog, minDelay, max
                 });
             }
             
+            // Method 3: Try looking for modal content with amenity sections
+            if (result.length === 0) {
+                const modal = document.querySelector('[role="dialog"]');
+                if (modal) {
+                    // Look for all divs that might contain amenity names
+                    const amenityDivs = modal.querySelectorAll('div[id*="row-title"]');
+                    amenityDivs.forEach(div => {
+                        const text = div.textContent.trim();
+                        if (text && text.length > 0 && text.length < 100 && !result.includes(text)) {
+                            result.push(text);
+                        }
+                    });
+                }
+            }
+            
             return result;
         });
         
-        requestLog.info(`Found ${amenities.length} amenities`);
+        if (amenities.length === 0) {
+            requestLog.warning('No amenities found - page may not have loaded properly');
+        } else {
+            requestLog.info(`Found ${amenities.length} amenities`);
+        }
         return amenities;
     } catch (error) {
         requestLog.error(`Failed to scrape amenities: ${error.message}`);

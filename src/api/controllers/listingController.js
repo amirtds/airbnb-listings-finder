@@ -105,9 +105,12 @@ export async function scrapeByListingId(req, res, next) {
         await page.goto(listingUrl, { waitUntil: 'networkidle', timeout: 30000 });
         await fixedDelay(1500); // Increased wait time to ensure page is fully loaded
 
-        // Capture listing page HTML
+        // Capture listing page HTML - extract site-content div only
         logger.info('Capturing listing page HTML...');
-        const listingPageHtml = await page.content();
+        const siteContentHtml = await page.evaluate(() => {
+            const siteContent = document.getElementById('site-content');
+            return siteContent ? siteContent.outerHTML : null;
+        });
 
         // Extract main listing details
         logger.info('Extracting main details...');
@@ -136,6 +139,12 @@ export async function scrapeByListingId(req, res, next) {
         logger.info(`Host Profile ID: ${hostProfileId || 'NOT FOUND'}`);
         
         const coHosts = await extractCoHosts(page);
+        if (coHosts.length === 0) {
+            logger.warning('No co-hosts found');
+        } else {
+            logger.info(`Found ${coHosts.length} co-host(s)`);
+        }
+        
         const propertyDetails = await extractPropertyDetails(page);
         logger.info(`Property: ${propertyDetails.maxGuests || '?'} guests, ${propertyDetails.bedrooms || '?'} bedrooms, ${propertyDetails.bathrooms || '?'} bathrooms`);
         
@@ -173,6 +182,15 @@ export async function scrapeByListingId(req, res, next) {
             minDelayBetweenRequests,
             maxDelayBetweenRequests
         );
+        
+        // Capture review modal HTML - extract dialog only
+        let reviewsModalHtml = null;
+        if (reviews && reviews.reviews) {
+            reviewsModalHtml = await page.evaluate(() => {
+                const dialog = document.querySelector('[role="dialog"]');
+                return dialog ? dialog.outerHTML : null;
+            });
+        }
 
         // Scrape house rules
         logger.info('Scraping house rules...');
@@ -218,11 +236,11 @@ export async function scrapeByListingId(req, res, next) {
             reviewScore: reviewScore,
             amenities: amenities,
             reviews: reviews.reviews, // Extract reviews from the new structure
-            houseRules: houseRules
-            // htmlSnapshots: {
-            //     listingPageHtml: listingPageHtml
-            //     reviewsModalHtml: reviews.htmlSnapshots?.reviewsModalHtml || null
-            // }
+            houseRules: houseRules,
+            htmlSnapshots: {
+                siteContent: siteContentHtml,
+                reviewsModal: reviewsModalHtml
+            }
         };
 
         logger.info('Scraping completed successfully');
