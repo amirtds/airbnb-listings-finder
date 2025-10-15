@@ -101,9 +101,49 @@ export async function scrapeByListingId(req, res, next) {
         const listingUrl = `https://www.airbnb.com/rooms/${listingId}`;
         logger.info(`Navigating to ${listingUrl}`);
         
-        // Navigate and wait for network to be idle for more reliable scraping
-        await page.goto(listingUrl, { waitUntil: 'networkidle', timeout: 30000 });
-        await fixedDelay(1500); // Increased wait time to ensure page is fully loaded
+        // Navigate with retry logic and fallback strategies
+        let navigationSuccess = false;
+        let lastError = null;
+        
+        // Try multiple navigation strategies
+        const strategies = [
+            { waitUntil: 'domcontentloaded', timeout: 60000, delay: 2000 },
+            { waitUntil: 'load', timeout: 60000, delay: 3000 },
+            { waitUntil: 'networkidle', timeout: 90000, delay: 2000 }
+        ];
+        
+        for (let i = 0; i < strategies.length && !navigationSuccess; i++) {
+            const strategy = strategies[i];
+            try {
+                logger.info(`Attempting navigation with strategy ${i + 1}/${strategies.length}: waitUntil='${strategy.waitUntil}', timeout=${strategy.timeout}ms`);
+                
+                await page.goto(listingUrl, { 
+                    waitUntil: strategy.waitUntil, 
+                    timeout: strategy.timeout 
+                });
+                
+                // Wait for critical content to appear
+                await page.waitForSelector('h1', { timeout: 10000 }).catch(() => {
+                    logger.warning('Title selector not found, continuing anyway...');
+                });
+                
+                await fixedDelay(strategy.delay);
+                navigationSuccess = true;
+                logger.info(`✓ Navigation successful with strategy ${i + 1}`);
+            } catch (error) {
+                lastError = error;
+                logger.warning(`Strategy ${i + 1} failed: ${error.message}`);
+                
+                if (i < strategies.length - 1) {
+                    logger.info(`Retrying with next strategy...`);
+                    await fixedDelay(2000); // Wait before retry
+                }
+            }
+        }
+        
+        if (!navigationSuccess) {
+            throw new Error(`Failed to navigate to listing after ${strategies.length} attempts. Last error: ${lastError?.message}`);
+        }
 
         // Capture listing page HTML - extract site-content div only
         logger.info('Capturing listing page HTML...');
