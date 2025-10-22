@@ -145,29 +145,60 @@ export async function extractImages(page) {
         const images = await page.evaluate(() => {
             const imageUrls = new Set();
             
-            // Method 1: data-original-uri attribute
+            // Helper function to check if URL is a valid listing image
+            const isValidListingImage = (url) => {
+                if (!url || !url.includes('a0.muscache.com')) return false;
+                
+                // Only include images from hosting/listing paths
+                const validPaths = [
+                    '/im/pictures/hosting/',
+                    '/im/pictures/miso/',
+                    '/pictures/hosting/',
+                    '/pictures/miso/'
+                ];
+                
+                const hasValidPath = validPaths.some(path => url.includes(path));
+                if (!hasValidPath) return false;
+                
+                // Exclude user avatars, profile pics, and other non-listing assets
+                const excludePatterns = [
+                    'profile_pic',
+                    'user.jpg',
+                    '/users/',
+                    'avatar',
+                    'profile-pic'
+                ];
+                
+                const hasExcludedPattern = excludePatterns.some(pattern => 
+                    url.toLowerCase().includes(pattern.toLowerCase())
+                );
+                
+                return !hasExcludedPattern;
+            };
+            
+            // Method 1: data-original-uri attribute (most reliable for listing images)
             const imgWithUri = document.querySelectorAll('img[data-original-uri]');
             imgWithUri.forEach(img => {
                 const src = img.getAttribute('data-original-uri');
-                if (src && src.startsWith('http') && !src.includes('profile_pic')) {
+                if (isValidListingImage(src)) {
                     imageUrls.add(src);
                 }
             });
             
-            // Method 2: picture img elements
+            // Method 2: picture img elements (gallery images)
             const pictureImgs = document.querySelectorAll('picture img');
             pictureImgs.forEach(img => {
                 const src = img.src || img.getAttribute('src');
-                if (src && src.startsWith('http') && !src.includes('profile_pic') && src.includes('airbnb')) {
+                if (isValidListingImage(src)) {
                     imageUrls.add(src);
                 }
             });
             
-            // Method 3: All images with airbnb CDN URLs
+            // Method 3: All images with valid muscache hosting URLs
             const allImgs = document.querySelectorAll('img');
             allImgs.forEach(img => {
                 const src = img.src || img.getAttribute('src');
-                if (src && src.includes('a0.muscache.com') && !src.includes('profile_pic')) {
+                if (isValidListingImage(src)) {
                     imageUrls.add(src);
                 }
             });
@@ -175,7 +206,7 @@ export async function extractImages(page) {
             return Array.from(imageUrls);
         });
         
-        console.log(`[Images] Extracted ${images.length} images`);
+        console.log(`[Images] Extracted ${images.length} listing images`);
         return images;
     } catch (error) {
         console.error(`[Images] Error extracting images: ${error.message}`);
