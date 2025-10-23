@@ -156,7 +156,57 @@ export async function extractImages(page, listingId, logger) {
             timeout: 30000 
         });
         
-        // Wait for images to load
+        // Wait for initial images to load
+        await fixedDelay(2000);
+        
+        // Method 1: Scroll through the photo tour to load all images (lazy loading)
+        logger.info('Scrolling through photo tour to load all images...');
+        await page.evaluate(async () => {
+            // Find the scrollable container
+            const scrollableContainer = document.querySelector('[data-testid="photo-viewer-section"]') 
+                || document.querySelector('[role="dialog"]')
+                || document.body;
+            
+            if (scrollableContainer) {
+                const scrollHeight = scrollableContainer.scrollHeight;
+                const clientHeight = scrollableContainer.clientHeight;
+                const scrollSteps = Math.ceil(scrollHeight / clientHeight);
+                
+                // Scroll down in steps to trigger lazy loading
+                for (let i = 0; i < scrollSteps; i++) {
+                    scrollableContainer.scrollTop = (i + 1) * clientHeight;
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                // Scroll back to top
+                scrollableContainer.scrollTop = 0;
+            }
+        });
+        
+        await fixedDelay(1000);
+        
+        // Method 2: Use keyboard navigation to cycle through images
+        logger.info('Using keyboard navigation to load remaining images...');
+        const maxImages = 100; // Safety limit
+        for (let i = 0; i < maxImages; i++) {
+            // Press right arrow key to go to next image
+            await page.keyboard.press('ArrowRight');
+            await fixedDelay(300); // Wait for image to load
+            
+            // Check if we've reached the end (no more images)
+            const isLastImage = await page.evaluate(() => {
+                // Check if next button is disabled or we're at the last image
+                const nextButton = document.querySelector('button[aria-label*="Next"]');
+                return nextButton && nextButton.disabled;
+            });
+            
+            if (isLastImage) {
+                logger.info(`Reached last image after ${i + 1} images`);
+                break;
+            }
+        }
+        
+        // Wait for all lazy-loaded images to render
         await fixedDelay(2000);
         
         const images = await page.evaluate(() => {
