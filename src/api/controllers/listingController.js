@@ -191,7 +191,7 @@ export async function scrapeByListingId(req, res, next) {
         }
         logger.info(`Description: ${description ? description.substring(0, 50) + '...' : 'NOT FOUND'}`);
         
-        const images = await extractImages(page);
+        const images = await extractImages(page, listingId, logger);
         if (images.length === 0) {
             logger.warning('No images extracted');
         }
@@ -492,7 +492,7 @@ export async function scrapeSiteContentSnapshot(req, res, next) {
 
         // Extract images
         logger.info('Extracting images...');
-        const images = await extractImages(page);
+        const images = await extractImages(page, listingId, logger);
         logger.info(`Images: ${images.length} found`);
 
         // Scrape amenities

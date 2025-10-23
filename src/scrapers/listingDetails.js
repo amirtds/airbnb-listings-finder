@@ -136,12 +136,29 @@ export async function extractDescription(page, requestLog) {
 }
 
 /**
- * Extract all listing images
+ * Extract all listing images from photo tour modal
  * @param {Object} page - Playwright page instance
+ * @param {string} listingId - The listing ID
+ * @param {Object} logger - Logger instance
  * @returns {Promise<Array>} Array of image URLs
  */
-export async function extractImages(page) {
+export async function extractImages(page, listingId, logger) {
     try {
+        // Save current URL to navigate back later
+        const currentUrl = page.url();
+        
+        // Navigate to photo tour modal
+        const photoTourUrl = `https://www.airbnb.com/rooms/${listingId}?modal=PHOTO_TOUR_SCROLLABLE`;
+        logger.info(`Navigating to photo tour: ${photoTourUrl}`);
+        
+        await page.goto(photoTourUrl, { 
+            waitUntil: 'domcontentloaded',
+            timeout: 30000 
+        });
+        
+        // Wait for images to load
+        await fixedDelay(2000);
+        
         const images = await page.evaluate(() => {
             const imageUrls = new Set();
             
@@ -176,6 +193,7 @@ export async function extractImages(page) {
                 return !hasExcludedPattern;
             };
             
+            // Extract images from photo tour modal
             // Method 1: data-original-uri attribute (most reliable for listing images)
             const imgWithUri = document.querySelectorAll('img[data-original-uri]');
             imgWithUri.forEach(img => {
@@ -206,10 +224,21 @@ export async function extractImages(page) {
             return Array.from(imageUrls);
         });
         
-        console.log(`[Images] Extracted ${images.length} listing images`);
+        logger.info(`Extracted ${images.length} listing images from photo tour`);
+        
+        // Navigate back to the original page if we were on the listing page
+        if (currentUrl && currentUrl.includes(`/rooms/${listingId}`) && !currentUrl.includes('modal=')) {
+            logger.info('Navigating back to main listing page...');
+            await page.goto(currentUrl, { 
+                waitUntil: 'domcontentloaded',
+                timeout: 30000 
+            });
+            await fixedDelay(1000);
+        }
+        
         return images;
     } catch (error) {
-        console.error(`[Images] Error extracting images: ${error.message}`);
+        logger.error(`Error extracting images from photo tour: ${error.message}`);
         return [];
     }
 }
