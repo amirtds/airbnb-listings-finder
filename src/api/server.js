@@ -3,7 +3,8 @@
  * 
  * Endpoints:
  * - GET /health - Health check
- * - POST /api/scrape/search - Scrape listings by location
+ * - POST /api/search/listings - Search listings by location (links only, all pages)
+ * - POST /api/scrape/search - Scrape listings by location (with details)
  * - POST /api/scrape/listing - Scrape individual listing by ID
  * - POST /api/scrape/listing/snapshot - Scrape site content snapshot (HTML, reviews, rules, images, amenities)
  */
@@ -13,6 +14,7 @@ import express from 'express';
 import cors from 'cors';
 import { scrapeByLocation } from './controllers/searchController.js';
 import { scrapeByListingId, scrapeSiteContentSnapshot } from './controllers/listingController.js';
+import { searchListingsByLocation } from './controllers/listingsSearchController.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { authenticate } from './middleware/auth.js';
@@ -71,6 +73,7 @@ app.post('/api/cleanup', authenticate, async (req, res) => {
 });
 
 // API Routes (protected with authentication)
+app.post('/api/search/listings', authenticate, searchListingsByLocation);
 app.post('/api/scrape/search', authenticate, scrapeByLocation);
 app.post('/api/scrape/listing/snapshot', authenticate, scrapeSiteContentSnapshot);
 app.post('/api/scrape/listing', authenticate, scrapeByListingId);
@@ -84,6 +87,7 @@ app.use((req, res) => {
         success: false,
         error: 'Endpoint not found',
         availableEndpoints: [
+            'POST /api/search/listings',
             'POST /api/scrape/search',
             'POST /api/scrape/listing',
             'POST /api/scrape/listing/snapshot',
@@ -97,7 +101,8 @@ app.use((req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 Airbnb Scraper API running on port ${PORT}`);
     console.log(`📍 Health check: http://localhost:${PORT}/health`);
-    console.log(`📍 Search endpoint: http://localhost:${PORT}/api/scrape/search`);
+    console.log(`📍 Search listings (links only): http://localhost:${PORT}/api/search/listings`);
+    console.log(`📍 Search endpoint (with details): http://localhost:${PORT}/api/scrape/search`);
     console.log(`📍 Listing endpoint: http://localhost:${PORT}/api/scrape/listing`);
     console.log(`📍 Snapshot endpoint: http://localhost:${PORT}/api/scrape/listing/snapshot`);
 });
