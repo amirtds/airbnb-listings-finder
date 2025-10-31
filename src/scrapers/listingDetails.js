@@ -300,45 +300,77 @@ export async function extractImages(page, listingId, logger) {
  */
 export async function extractHostProfileId(page) {
     return await page.evaluate(() => {
-        // Method 1: Look for host profile link in the host overview section
-        const hostSection = document.querySelector('[data-section-id="HOST_OVERVIEW_DEFAULT"]');
-        if (hostSection) {
-            const hostLink = hostSection.querySelector('a[href*="/users/show/"]');
-            if (hostLink) {
-                const match = hostLink.href.match(/\/users\/show\/(\d+)/);
-                if (match) return match[1];
+        // Helper function to extract profile ID from various URL patterns
+        const extractProfileId = (url) => {
+            if (!url) return null;
+            
+            // Pattern 1: /users/show/123456
+            let match = url.match(/\/users\/show\/(\d+)/);
+            if (match) return match[1];
+            
+            // Pattern 2: /users/profile/123456
+            match = url.match(/\/users\/profile\/(\d+)/);
+            if (match) return match[1];
+            
+            return null;
+        };
+        
+        // Method 1: Look for "Meet your host" section
+        const meetHostSection = document.querySelector('[data-section-id="MEET_YOUR_HOST"]');
+        if (meetHostSection) {
+            const hostLinks = meetHostSection.querySelectorAll('a[href*="/users/"]');
+            for (const link of hostLinks) {
+                const profileId = extractProfileId(link.href);
+                if (profileId) return profileId;
             }
         }
         
-        // Method 2: Look for the "Learn more about the host" button
+        // Method 2: Look for host profile link in the host overview section
+        const hostSection = document.querySelector('[data-section-id="HOST_OVERVIEW_DEFAULT"]');
+        if (hostSection) {
+            const hostLinks = hostSection.querySelectorAll('a[href*="/users/"]');
+            for (const link of hostLinks) {
+                const profileId = extractProfileId(link.href);
+                if (profileId) return profileId;
+            }
+        }
+        
+        // Method 3: Look for aria-label "Go to Host full profile"
+        const hostProfileLink = document.querySelector('a[aria-label*="Host full profile"]');
+        if (hostProfileLink) {
+            const profileId = extractProfileId(hostProfileLink.href);
+            if (profileId) return profileId;
+        }
+        
+        // Method 4: Look for the "Learn more about the host" button
         const learnMoreBtn = document.querySelector('button[aria-label*="Learn more about the host"]');
         if (learnMoreBtn) {
             const parent = learnMoreBtn.closest('[data-section-id="HOST_OVERVIEW_DEFAULT"]');
             if (parent) {
-                const hostLink = parent.querySelector('a[href*="/users/show/"]');
-                if (hostLink) {
-                    const match = hostLink.href.match(/\/users\/show\/(\d+)/);
-                    if (match) return match[1];
+                const hostLinks = parent.querySelectorAll('a[href*="/users/"]');
+                for (const link of hostLinks) {
+                    const profileId = extractProfileId(link.href);
+                    if (profileId) return profileId;
                 }
             }
         }
         
-        // Method 3: Look in the host profile image/avatar area within HOST_OVERVIEW section
-        const hostAvatar = document.querySelector('[data-section-id="HOST_OVERVIEW_DEFAULT"] a[href*="/users/show/"]');
+        // Method 5: Look in the host profile image/avatar area within HOST_OVERVIEW section
+        const hostAvatar = document.querySelector('[data-section-id="HOST_OVERVIEW_DEFAULT"] a[href*="/users/"]');
         if (hostAvatar) {
-            const match = hostAvatar.href.match(/\/users\/show\/(\d+)/);
-            if (match) return match[1];
+            const profileId = extractProfileId(hostAvatar.href);
+            if (profileId) return profileId;
         }
         
-        // Method 4: Exclude reviews section and find first host link
-        const allLinks = Array.from(document.querySelectorAll('a[href*="/users/show/"]'));
+        // Method 6: Exclude reviews section and find first host link
+        const allLinks = Array.from(document.querySelectorAll('a[href*="/users/"]'));
         for (const link of allLinks) {
             // Skip if link is inside reviews section
             const reviewsSection = link.closest('[data-section-id="REVIEWS_DEFAULT"]');
             if (reviewsSection) continue;
             
-            const match = link.href.match(/\/users\/show\/(\d+)/);
-            if (match) return match[1];
+            const profileId = extractProfileId(link.href);
+            if (profileId) return profileId;
         }
         
         return null;
@@ -353,6 +385,21 @@ export async function extractHostProfileId(page) {
 export async function extractCoHosts(page) {
     return await page.evaluate(() => {
         const coHostsList = [];
+        
+        // Helper function to extract profile ID from various URL patterns
+        const extractProfileId = (url) => {
+            if (!url) return null;
+            
+            // Pattern 1: /users/show/123456
+            let match = url.match(/\/users\/show\/(\d+)/);
+            if (match) return match[1];
+            
+            // Pattern 2: /users/profile/123456
+            match = url.match(/\/users\/profile\/(\d+)/);
+            if (match) return match[1];
+            
+            return null;
+        };
         
         // Method 1: Find the Co-hosts section by looking for h3 containing "Co-hosts" or "Co-host"
         const headings = Array.from(document.querySelectorAll('h3, h2'));
@@ -372,11 +419,10 @@ export async function extractCoHosts(page) {
             
             if (listElement) {
                 // Extract all co-host links from the list
-                const coHostLinks = listElement.querySelectorAll('a[href*="/users/show/"]');
+                const coHostLinks = listElement.querySelectorAll('a[href*="/users/"]');
                 coHostLinks.forEach(link => {
-                    const match = link.href.match(/\/users\/show\/(\d+)/);
-                    if (match) {
-                        const profileId = match[1];
+                    const profileId = extractProfileId(link.href);
+                    if (profileId) {
                         // Extract name from aria-label or text content
                         let name = null;
                         const ariaLabel = link.getAttribute('aria-label');
@@ -412,15 +458,14 @@ export async function extractCoHosts(page) {
         if (coHostsList.length === 0) {
             const hostSection = document.querySelector('[data-section-id="HOST_OVERVIEW_DEFAULT"]');
             if (hostSection) {
-                const allLinks = hostSection.querySelectorAll('a[href*="/users/show/"]');
+                const allLinks = hostSection.querySelectorAll('a[href*="/users/"]');
                 // Skip the first link (main host) and get the rest as co-hosts
                 const linkArray = Array.from(allLinks);
                 if (linkArray.length > 1) {
                     for (let i = 1; i < linkArray.length; i++) {
                         const link = linkArray[i];
-                        const match = link.href.match(/\/users\/show\/(\d+)/);
-                        if (match) {
-                            const profileId = match[1];
+                        const profileId = extractProfileId(link.href);
+                        if (profileId) {
                             let name = null;
                             const ariaLabel = link.getAttribute('aria-label');
                             if (ariaLabel) {

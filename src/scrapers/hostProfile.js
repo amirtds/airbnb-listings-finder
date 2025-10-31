@@ -19,11 +19,33 @@ export async function scrapeHostProfile(page, hostProfileId, requestLog, minDela
             return null;
         }
         
-        // Navigate to host profile page
-        const hostUrl = `https://www.airbnb.com/users/show/${hostProfileId}`;
-        requestLog.info(`Navigating to host profile: ${hostUrl}`);
-        await page.goto(hostUrl, { waitUntil: 'networkidle', timeout: 30000 });
-        await fixedDelay(1500); // Increased wait time for reliable scraping
+        // Try both URL patterns for host profile
+        const urlPatterns = [
+            `https://www.airbnb.com/users/show/${hostProfileId}`,
+            `https://www.airbnb.com/users/profile/${hostProfileId}`
+        ];
+        
+        let navigationSuccess = false;
+        let lastError = null;
+        
+        for (const hostUrl of urlPatterns) {
+            try {
+                requestLog.info(`Attempting to navigate to host profile: ${hostUrl}`);
+                await page.goto(hostUrl, { waitUntil: 'networkidle', timeout: 30000 });
+                await fixedDelay(1500); // Increased wait time for reliable scraping
+                navigationSuccess = true;
+                requestLog.info(`✓ Successfully loaded host profile`);
+                break;
+            } catch (error) {
+                lastError = error;
+                requestLog.warning(`Failed to load ${hostUrl}: ${error.message}`);
+            }
+        }
+        
+        if (!navigationSuccess) {
+            requestLog.error(`Failed to load host profile with both URL patterns`);
+            throw lastError || new Error('Failed to navigate to host profile');
+        }
         
         // Extract host profile data
         const hostData = await page.evaluate(() => {
