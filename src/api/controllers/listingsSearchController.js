@@ -75,7 +75,12 @@ export async function searchListingsByLocation(req, res, next) {
         console.log(`[API] Search URL: ${searchUrl}`);
 
         // Run the crawler
-        await searchCrawler.run([searchUrl]);
+        await searchCrawler.run([
+            {
+                url: searchUrl,
+                uniqueKey: `${searchUrl}::${Date.now()}::${Math.random().toString(36).slice(2)}`
+            }
+        ]);
 
         console.log(`[API] Search completed. Found ${foundListings.length} listings`);
 
