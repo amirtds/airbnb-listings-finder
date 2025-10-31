@@ -368,11 +368,110 @@ export async function extractHostProfileId(page) {
             // Skip if link is inside reviews section
             const reviewsSection = link.closest('[data-section-id="REVIEWS_DEFAULT"]');
             if (reviewsSection) continue;
-            
+
             const profileId = extractProfileId(link.href);
             if (profileId) return profileId;
         }
-        
+
+        // Method 7: Parse embedded JSON (data-state) for host identifiers
+        const candidateFromEmbeddedData = (() => {
+            const scripts = Array.from(document.querySelectorAll('script'));
+            const candidates = [];
+            const visited = new WeakSet();
+
+            const pushCandidate = (id, weight) => {
+                if (!id) return;
+                const normalized = String(id).trim();
+                if (!/^\d+$/.test(normalized)) return;
+                candidates.push({ id: normalized, weight });
+            };
+
+            const collectIds = (node, contextKey = '') => {
+                if (!node || typeof node !== 'object') return;
+                if (visited.has(node)) return;
+                visited.add(node);
+
+                if (Array.isArray(node)) {
+                    node.forEach(item => collectIds(item, contextKey));
+                    return;
+                }
+
+                const contextLower = contextKey.toLowerCase();
+
+                for (const [key, value] of Object.entries(node)) {
+                    const lowerKey = key.toLowerCase();
+                    const nextContext = contextKey ? `${contextLower}.${lowerKey}` : lowerKey;
+
+                    if (['userid', 'id', 'hostid', 'profileid', 'primaryhostid'].includes(lowerKey)) {
+                        if (typeof value === 'string' || typeof value === 'number') {
+                            const strVal = String(value).trim();
+                            const weight = lowerKey.includes('host') || contextLower.includes('host')
+                                ? 3
+                                : (lowerKey.includes('user') || contextLower.includes('user'))
+                                    ? 2
+                                    : 1;
+                            pushCandidate(strVal, weight);
+                        }
+                    }
+
+                    if (value && typeof value === 'object') {
+                        collectIds(value, nextContext);
+                    }
+                }
+            };
+
+            for (const script of scripts) {
+                const text = script.textContent;
+                if (!text || text.length < 20) continue;
+
+                let parsed = null;
+                try {
+                    parsed = JSON.parse(text);
+                } catch (error) {
+                    // Some script tags may contain non-JSON strings; skip parsing errors silently
+                }
+
+                if (parsed) {
+                    collectIds(parsed);
+                } else {
+                    const matches = text.match(/"(?:primary)?[Hh]ost(?:Profile)?Id"\s*:\s*"?(\d+)"?/g);
+                    if (matches) {
+                        matches.forEach(match => {
+                            const idMatch = match.match(/(\d+)/);
+                            if (idMatch) {
+                                pushCandidate(idMatch[1], 3);
+                            }
+                        });
+                    }
+
+                    const userMatches = text.match(/"userId"\s*:\s*"?(\d+)"?/g);
+                    if (userMatches) {
+                        userMatches.forEach(match => {
+                            const idMatch = match.match(/(\d+)/);
+                            if (idMatch) {
+                                pushCandidate(idMatch[1], 1);
+                            }
+                        });
+                    }
+                }
+            }
+
+            if (candidates.length > 0) {
+                candidates.sort((a, b) => {
+                    if (b.weight !== a.weight) return b.weight - a.weight;
+                    if (b.id.length !== a.id.length) return b.id.length - a.id.length;
+                    return parseInt(b.id, 10) - parseInt(a.id, 10);
+                });
+                return candidates[0].id;
+            }
+
+            return null;
+        })();
+
+        if (candidateFromEmbeddedData) {
+            return candidateFromEmbeddedData;
+        }
+
         return null;
     }).catch(() => null);
 }
