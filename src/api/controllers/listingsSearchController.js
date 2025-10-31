@@ -79,6 +79,30 @@ export async function searchListingsByLocation(req, res, next) {
 
         console.log(`[API] Search completed. Found ${foundListings.length} listings`);
 
+        // Ensure we have unique listings by listingId
+        const uniqueListings = Array.from(
+            new Map(foundListings.map(item => [item.listingId, item])).values()
+        );
+
+        if (uniqueListings.length !== foundListings.length) {
+            console.log(`[API] Removed ${foundListings.length - uniqueListings.length} duplicate listings`);
+        }
+
+        const listingsWithMetadata = uniqueListings.map(item => ({
+            listingId: item.listingId,
+            listingUrl: item.listingUrl,
+            location: item.location,
+            title: item.title || null,
+            description: item.description || null,
+            bedrooms: item.bedrooms ?? null,
+            pricePerNight: item.pricePerNight ?? null,
+            totalPrice: item.totalPrice ?? null,
+            stayLengthNights: item.stayLengthNights ?? null,
+            rawPriceText: item.rawPriceText || null,
+            numberOfReviews: item.reviewsCount ?? null,
+            overallReviewScore: item.overallReviewScore ?? null
+        }));
+
         // Calculate processing time
         const processingTime = Math.round((Date.now() - startTime) / 1000);
 
@@ -87,8 +111,8 @@ export async function searchListingsByLocation(req, res, next) {
             success: true,
             data: {
                 location: location,
-                totalFound: foundListings.length,
-                listings: foundListings
+                totalFound: listingsWithMetadata.length,
+                listings: listingsWithMetadata
             },
             meta: {
                 scrapedAt: new Date().toISOString(),

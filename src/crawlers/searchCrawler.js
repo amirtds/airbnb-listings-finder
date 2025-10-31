@@ -55,24 +55,129 @@ export function createSearchCrawler(foundListings, numberOfListings, location) {
             });
             await page.waitForTimeout(1000);
 
-            // Extract listing URLs from the page
-            const listingLinks = await page.$$eval('a[href*="/rooms/"]', (links) => {
-                return links
-                    .map(link => {
-                        const href = link.getAttribute('href');
-                        if (href) {
-                            const match = href.match(/\/rooms\/(\d+)/);
-                            if (match) {
-                                return {
-                                    listingId: match[1],
-                                    listingUrl: `https://www.airbnb.com/rooms/${match[1]}`
-                                };
+            // Extract listing data from the page
+            const listingLinks = await page.$$eval('[itemprop="itemListElement"]', (cards, searchLocation) => {
+                const parseBedrooms = (texts) => {
+                    for (const text of texts) {
+                        const match = text.match(/(\d+(?:\.\d+)?)\s*(bedroom|bedrooms|bed|beds)/i);
+                        if (match) {
+                            return Number(match[1]);
+                        }
+                    }
+                    return null;
+                };
+
+                const parsePriceData = (priceText) => {
+                    const normalized = priceText ? priceText.replace(/\s+/g, ' ').trim() : '';
+                    const priceMatches = Array.from(normalized.matchAll(/\$([\d,.]+)/g));
+                    let totalPrice = null;
+                    if (priceMatches.length > 0) {
+                        const lastMatch = priceMatches[priceMatches.length - 1][1];
+                        totalPrice = Number(lastMatch.replace(/,/g, ''));
+                    }
+
+                    let stayLengthNights = null;
+                    const stayMatch = normalized.match(/for\s+(\d+)\s+nights?/i);
+                    if (stayMatch) {
+                        stayLengthNights = Number(stayMatch[1]);
+                    }
+
+                    let pricePerNight = null;
+                    if (stayLengthNights && totalPrice !== null && stayLengthNights > 0) {
+                        pricePerNight = Number((totalPrice / stayLengthNights).toFixed(2));
+                    } else {
+                        const perNightMatch = normalized.match(/\$([\d,.]+)\s*(?:per\s+night|night)/i);
+                        if (perNightMatch) {
+                            pricePerNight = Number(perNightMatch[1].replace(/,/g, ''));
+                        }
+                    }
+
+                    return {
+                        rawPriceText: normalized || null,
+                        totalPrice,
+                        stayLengthNights,
+                        pricePerNight
+                    };
+                };
+
+                return cards
+                    .map(card => {
+                        const anchor = card.querySelector('a[href*="/rooms/"]');
+                        if (!anchor) {
+                            return null;
+                        }
+
+                        const href = anchor.getAttribute('href') || '';
+                        const match = href.match(/\/rooms\/(\d+)/);
+                        if (!match) {
+                            return null;
+                        }
+
+                        const listingId = match[1];
+                        const listingUrl = `https://www.airbnb.com/rooms/${listingId}`;
+
+                        const titleEl = card.querySelector('[data-testid="listing-card-title"]');
+                        const nameEl = card.querySelector('[data-testid="listing-card-name"]');
+                        const subtitleEls = Array.from(card.querySelectorAll('[data-testid="listing-card-subtitle"]'));
+
+                        const title = titleEl?.textContent?.trim() || null;
+                        const nameText = nameEl?.textContent?.trim() || null;
+                        const subtitleTexts = subtitleEls
+                            .map(el => el.textContent?.trim())
+                            .filter(text => Boolean(text));
+
+                        const bedrooms = parseBedrooms(subtitleTexts);
+
+                        let description = nameText || null;
+                        if (!description) {
+                            description = subtitleTexts.find(text => {
+                                const lower = text.toLowerCase();
+                                const isBedInfo = /(bedroom|bed)/i.test(lower);
+                                const isDateRange = /(night|nights|check\sin)/i.test(lower);
+                                return !isBedInfo && !isDateRange;
+                            }) || null;
+                        }
+
+                        const priceRow = card.querySelector('[data-testid="price-availability-row"]');
+                        const priceData = parsePriceData(priceRow ? priceRow.textContent || '' : '');
+
+                        const reviewsLabelEl = card.querySelector('[aria-label*="reviews on the listing"]');
+                        let reviewsCount = null;
+                        if (reviewsLabelEl) {
+                            const label = reviewsLabelEl.getAttribute('aria-label') || '';
+                            const reviewsMatch = label.match(/(\d+)/);
+                            if (reviewsMatch) {
+                                reviewsCount = Number(reviewsMatch[1]);
                             }
                         }
-                        return null;
+
+                        const ratingLabelEl = card.querySelector('[aria-label*="average rating"]');
+                        let overallReviewScore = null;
+                        if (ratingLabelEl) {
+                            const label = ratingLabelEl.getAttribute('aria-label') || '';
+                            const ratingMatch = label.match(/(\d+(?:\.\d+)?)/);
+                            if (ratingMatch) {
+                                overallReviewScore = Number(ratingMatch[1]);
+                            }
+                        }
+
+                        return {
+                            listingId,
+                            listingUrl,
+                            location: searchLocation,
+                            title,
+                            description,
+                            bedrooms,
+                            pricePerNight: priceData.pricePerNight,
+                            stayLengthNights: priceData.stayLengthNights,
+                            totalPrice: priceData.totalPrice,
+                            rawPriceText: priceData.rawPriceText,
+                            reviewsCount,
+                            overallReviewScore
+                        };
                     })
                     .filter(item => item !== null);
-            });
+            }, location);
 
             // Remove duplicates based on listingId
             const uniqueListings = Array.from(
