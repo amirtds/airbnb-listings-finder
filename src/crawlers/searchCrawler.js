@@ -13,8 +13,13 @@ import { getBrowserLaunchOptions, getPreNavigationHooks } from '../utils/browser
  * @returns {PlaywrightCrawler} Configured crawler instance
  */
 export function createSearchCrawler(foundListings, numberOfListings, location) {
+    // Calculate max pages needed: ~18-20 listings per page, so for 100 listings we need ~6 pages
+    // Add buffer for pagination and retries
+    const estimatedPagesNeeded = Math.ceil(numberOfListings / 18) + 5;
+    const maxRequests = Math.max(estimatedPagesNeeded, 20); // Minimum 20 to handle various scenarios
+    
     const crawler = new PlaywrightCrawler({
-        maxRequestsPerCrawl: 15,
+        maxRequestsPerCrawl: maxRequests,
         
         // Rate limiting to avoid being blocked
         maxConcurrency: 1,
