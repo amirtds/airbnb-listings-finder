@@ -70,9 +70,10 @@ export async function searchListingsByLocation(req, res, next) {
         // Create and configure the search crawler
         const searchCrawler = createSearchCrawler(foundListings, maxListings, location);
 
-        // Build the search URL
-        const searchUrl = `https://www.airbnb.com/s/${encodeURIComponent(location)}/homes`;
-        console.log(`[API] Search URL: ${searchUrl}`);
+        // Build the search URL with "Entire home" filter
+        // room_types[]: Entire home/apt filter to exclude shared rooms and private rooms
+        const searchUrl = `https://www.airbnb.com/s/${encodeURIComponent(location)}/homes?room_types%5B%5D=Entire%20home%2Fapt`;
+        console.log(`[API] Search URL (Entire home only): ${searchUrl}`);
 
         // Run the crawler
         await searchCrawler.run([
