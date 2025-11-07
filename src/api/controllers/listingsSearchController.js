@@ -84,6 +84,14 @@ export async function searchListingsByLocation(req, res, next) {
         ]);
 
         console.log(`[API] Search completed. Found ${foundListings.length} listings`);
+        
+        // Explicitly tear down the crawler to prevent state persistence
+        try {
+            await searchCrawler.teardown();
+            console.log(`[API] Crawler teardown completed`);
+        } catch (teardownError) {
+            console.warn(`[API] Crawler teardown warning:`, teardownError.message);
+        }
 
         // Ensure we have unique listings by listingId
         const uniqueListings = Array.from(
