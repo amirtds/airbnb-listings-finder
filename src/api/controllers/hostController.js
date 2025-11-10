@@ -9,6 +9,152 @@ import { extractHostProfileId, extractCoHosts } from '../../scrapers/listingDeta
 import { fixedDelay } from '../../utils/delays.js';
 
 /**
+ * Extracts company name from text if it contains company indicators
+ * @param {string} text - Text to analyze
+ * @returns {string|null} - Extracted company name or null
+ */
+function extractCompanyNameFromText(text) {
+    if (!text) return null;
+    
+    const companyKeywords = [
+        'properties', 'property', 'management', 'rentals', 'rental',
+        'group', 'llc', 'inc', 'corp', 'corporation', 'ltd', 'limited',
+        'hospitality', 'homes', 'realty', 'real estate', 'estate',
+        'apartments', 'vacation', 'stay', 'stays', 'hosting',
+        'company', 'co.', 'services', 'solutions', 'ventures',
+        'investments', 'holdings', 'enterprises', 'associates'
+    ];
+    
+    const textLower = text.toLowerCase();
+    
+    // Check if text contains company keywords
+    const hasCompanyKeyword = companyKeywords.some(keyword => textLower.includes(keyword));
+    
+    if (hasCompanyKeyword) {
+        // Remove common prefixes like "My work:", "Work:", "At", etc.
+        let cleaned = text
+            .replace(/^(my work:|work:|at|for)\s*/i, '')
+            .trim();
+        
+        return cleaned || text;
+    }
+    
+    // Check for legal entity suffixes
+    const legalSuffixPattern = /\b(llc|inc\.?|corp\.?|ltd\.?|limited|co\.)\b/i;
+    if (legalSuffixPattern.test(text)) {
+        let cleaned = text
+            .replace(/^(my work:|work:|at|for)\s*/i, '')
+            .trim();
+        return cleaned || text;
+    }
+    
+    return null;
+}
+
+/**
+ * Analyzes host information to determine if it's a company or individual
+ * @param {Object} hostData - The host data object
+ * @returns {Object} { isCompany: boolean, companyName: string }
+ */
+function detectCompanyHost(hostData) {
+    const { name, work, about } = hostData;
+    
+    // Company indicators in names
+    const companyKeywords = [
+        'properties', 'property', 'management', 'rentals', 'rental',
+        'group', 'llc', 'inc', 'corp', 'corporation', 'ltd', 'limited',
+        'hospitality', 'homes', 'realty', 'real estate', 'estate',
+        'apartments', 'vacation', 'stay', 'stays', 'hosting',
+        'company', 'co.', 'services', 'solutions', 'ventures',
+        'investments', 'holdings', 'enterprises', 'associates'
+    ];
+    
+    let isCompany = false;
+    let companyName = '';
+    
+    if (!name) {
+        return { isCompany: false, companyName: '' };
+    }
+    
+    const nameLower = name.toLowerCase();
+    const workLower = (work || '').toLowerCase();
+    const aboutLower = (about || '').toLowerCase();
+    
+    // Priority 1: Check work field first (most reliable for company names)
+    if (work) {
+        const extractedFromWork = extractCompanyNameFromText(work);
+        if (extractedFromWork) {
+            isCompany = true;
+            companyName = extractedFromWork;
+            return { isCompany, companyName };
+        }
+    }
+    
+    // Priority 2: Check if name contains company keywords
+    for (const keyword of companyKeywords) {
+        if (nameLower.includes(keyword)) {
+            isCompany = true;
+            companyName = name;
+            return { isCompany, companyName };
+        }
+    }
+    
+    // Priority 3: Check for legal entity suffixes in name
+    const legalSuffixPattern = /\b(llc|inc\.?|corp\.?|ltd\.?|limited|co\.)\b/i;
+    if (legalSuffixPattern.test(name)) {
+        isCompany = true;
+        companyName = name;
+        return { isCompany, companyName };
+    }
+    
+    // Priority 4: Check work field for property management role indicators
+    if (work) {
+        const workIndicators = [
+            'property management', 'property manager', 'rental management',
+            'vacation rental', 'real estate', 'hospitality', 'host',
+            'airbnb', 'vrbo', 'vacation home'
+        ];
+        
+        for (const indicator of workIndicators) {
+            if (workLower.includes(indicator)) {
+                isCompany = true;
+                // Use the full work text as company name if it looks professional
+                companyName = work.replace(/^(my work:|work:|at|for)\s*/i, '').trim() || work;
+                return { isCompany, companyName };
+            }
+        }
+    }
+    
+    // Priority 5: Check about section for company language
+    if (aboutLower) {
+        const aboutIndicators = [
+            'our company', 'our team', 'we manage', 'we own',
+            'professional property', 'property management',
+            'our properties', 'our portfolio', 'our business',
+            'we specialize', 'we offer', 'our services'
+        ];
+        
+        for (const indicator of aboutIndicators) {
+            if (aboutLower.includes(indicator)) {
+                isCompany = true;
+                // Try to extract company name from work field if available, otherwise use name
+                if (work) {
+                    companyName = work.replace(/^(my work:|work:|at|for)\s*/i, '').trim() || name;
+                } else {
+                    companyName = name;
+                }
+                return { isCompany, companyName };
+            }
+        }
+    }
+    
+    return {
+        isCompany: false,
+        companyName: ''
+    };
+}
+
+/**
  * POST /api/listing/hosts
  * Get host and co-host information for a listing
  * 
@@ -33,7 +179,9 @@ import { fixedDelay } from '../../utils/delays.js';
  *         "rating": 4.9,
  *         "yearsHosting": 5,
  *         "location": "Miami, FL",
- *         "about": "..."
+ *         "about": "...",
+ *         "isCompany": false,
+ *         "companyName": ""
  *       }
  *     },
  *     "coHosts": [
@@ -192,7 +340,9 @@ export async function getHostsByListingId(req, res, next) {
                 location: null,
                 languages: [],
                 about: null,
-                profileImageUrl: null
+                profileImageUrl: null,
+                isCompany: false,
+                companyName: ''
             };
             
             // Extract name from h2 or the profile card
@@ -270,6 +420,13 @@ export async function getHostsByListingId(req, res, next) {
         });
         
         logger.info(`Successfully extracted host data for: ${hostData.name}`);
+        
+        // Detect if host is a company or individual
+        const companyDetection = detectCompanyHost(hostData);
+        hostData.isCompany = companyDetection.isCompany;
+        hostData.companyName = companyDetection.companyName;
+        
+        logger.info(`Host type: ${hostData.isCompany ? 'Company' : 'Individual'}${hostData.companyName ? ` (${hostData.companyName})` : ''}`);
 
         // Close browser
         await browser.close();
